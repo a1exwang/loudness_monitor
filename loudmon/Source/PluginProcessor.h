@@ -15,7 +15,7 @@
 //==============================================================================
 /**
 */
-class MainContentComponent;
+class MainComponent;
 class NewProjectAudioProcessor  : public AudioProcessor
 {
 public:
@@ -61,7 +61,8 @@ private:
     std::vector<std::vector<float>> loudness_buffer;
     size_t delay_offset;
     size_t loudness_offset;
-    MainContentComponent *editor;
+    MainComponent *editor;
+    std::chrono::high_resolution_clock::time_point last_process_time;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NewProjectAudioProcessor)
 };

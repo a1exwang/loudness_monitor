@@ -1,13 +1,3 @@
-/*
-  ==============================================================================
-
-    This file was auto-generated!
-
-    It contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
-
 #pragma once
 
 #include <list>
@@ -15,82 +5,103 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-class DebugOutputComponent :public Component {
-public:
-    DebugOutputComponent();
-	void print_line(const std::string& s) {
-		lines.push_back(s);
-        if (lines.size() > 10) {
-            lines.pop_front();
-        }
-        repaint();
-    }
-
-    void paint (Graphics& g) override
-    {
-        g.fillAll (Colours::black);
-        std::stringstream ss;
-        ss << "output: " << std::endl;
-        for (auto& line : lines) {
-            ss << line << std::endl;
-        }
-        g.setFont(15);
-        g.setColour(juce::Colour::fromRGB(248, 248, 248));
-        g.drawMultiLineText(ss.str(), 10, 10, getWidth() - 20);
-    }
-private:
-    std::list<std::string> lines;
+class DebugOutputComponent :public Component, public juce::Timer {
+ public:
+  DebugOutputComponent();
+  ~DebugOutputComponent() override;
+  void print_line(const std::string& s);
+  void timerCallback() override;
+  void paint (Graphics& g) override;
+ private:
+  Font mono_font;
+  size_t max_line_count = 16;
+  std::list<std::string> lines;
+  std::mutex lines_lock;
 };
 
 class DebugOutputWindow :public DocumentWindow {
-public:
-    DebugOutputWindow(const String& name, Colour backgroundColour, int buttonsNeeded) :DocumentWindow(name, backgroundColour, buttonsNeeded) {
-        setContentOwned(&comp, true);
-    }
+ public:
+  DebugOutputWindow(const String& name, Colour backgroundColour, int buttonsNeeded) :DocumentWindow(name, backgroundColour, buttonsNeeded) {
+    setContentOwned(&comp, true);
+  }
 
-private:
-    DebugOutputComponent comp;
+ private:
+  DebugOutputComponent comp;
 };
 
-//==============================================================================
-class MainContentComponent   : public AudioProcessorEditor
-{
-public:
-    //==============================================================================
-    MainContentComponent(NewProjectAudioProcessor& p);
-    ~MainContentComponent() {
-        dw.deleteAndZero();
-    }
+class MainComponent : public AudioProcessorEditor, public juce::Timer {
+ public:
+  MainComponent(NewProjectAudioProcessor& p);
+  ~MainComponent() override {
+    dw.deleteAndZero();
+    dw = nullptr;
+  }
 
-    void paint(Graphics& g) {
-        g.fillAll(Colour::fromRGB(0, 0, 0));
-        g.drawText("hello world", 10, 10, 50, 50, Justification::left);
+  void visibilityChanged() override {
+    if (dw) {
+      dw->setVisible(isVisible());
     }
+  }
 
-    void resized() override
-    {
+  void paint(Graphics& g) override {
+    g.fillAll(Colour::fromRGB(0, 0, 0));
+    g.drawText("hello world", 10, 10, 50, 50, Justification::left);
+  }
+
+  void timerCallback() override {
+    while (dequeue()) {}
+  }
+
+  void set_rms(const std::vector<float>& values) {
+    std::stringstream ss;
+    ss << "RMS: ";
+    for (float value : values) {
+      ss << std::fixed << std::setprecision(2) << std::setfill('0') << value << "dB ";
     }
-    Component::SafePointer<DebugOutputWindow> dw;
+    enqueue([this, text = ss.str()]() {
+      rms_text.setText(text, juce::NotificationType::dontSendNotification);
+      repaint();
+    });
+  }
 
-    void setRMS(std::vector<float> values) {
-        std::stringstream ss;
-        ss << "RMS: ";
-        for (int i = 0; i < values.size(); i++) {
-            ss << std::fixed << std::setprecision(2) << std::setfill('0') << values[i] << "dB ";
-        }
-        rms_text.setText(ss.str(), juce::NotificationType::dontSendNotification);
-        repaint();
+  void set_latency_ms(float ms, float max_expected) {
+    std::stringstream ss;
+    ss << "Latency: " << std::fixed << std::setprecision(2) << std::setfill('0') << ms << "/" << max_expected << "ms";
+    enqueue([this, text = ss.str()]() {
+      latency_text.setText(text, juce::NotificationType::dontSendNotification);
+      repaint();
+    });
+  }
+
+  void repaint_safe() {
+    enqueue([this]() {
+      repaint();
+    });
+  }
+
+ protected:
+  void enqueue(std::function<void()> action) {
+    std::unique_lock<std::mutex> _(queue_lock);
+    queued_actions.emplace_back(std::move(action));
+  }
+  bool dequeue() {
+    std::unique_lock<std::mutex> _(queue_lock);
+    if (queued_actions.empty()) {
+      return false;
     }
-    void setPeak(std::vector<float> values) {
+    queued_actions.front()();
+    queued_actions.pop_front();
+    return true;
+  }
 
-    }
-
-private:
-    std::vector<float> rms, peak;
-    Label rms_text, peak_text;
-    //==============================================================================
-    //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContentComponent)
+ private:
+  Label rms_text, latency_text;
+  std::list<std::function<void()>> queued_actions;
+  std::mutex queue_lock;
+  Component::SafePointer<DebugOutputWindow> dw;
+  //==============================================================================
+  //==============================================================================
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
 
 void log(int level, const std::string& s);

@@ -10,7 +10,7 @@ else()
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/FRUT
     COMMAND_ECHO STDOUT)
 
-  execute_process(COMMAND bash -c "make -j`nproc` Jucer2Reprojucer && make install"
+  execute_process(COMMAND bash -c "make -j`nproc` && make install"
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/FRUT
     COMMAND_ECHO STDOUT)
 
