@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="dq01xz" name="loudmon" projectType="audioplug" jucerVersion="5.4.7"
-  headerPath="../vst2sdk/"
-              pluginFormats="buildAU,buildStandalone,buildVST,buildVST3">
+              headerPath="../vst2sdk/" pluginFormats="buildAU,buildStandalone,buildVST,buildVST3">
   <MAINGROUP id="uY6Nur" name="NewProject">
     <GROUP id="{BABD80EF-84CB-D59C-6B7E-F9B098595461}" name="Source">
       <FILE id="fLGyEz" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -12,6 +11,14 @@
       <FILE id="mFhS5R" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="Mmr7AB" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="Mmr7AC" name="filter_ui.h" compile="0" resource="0" file="Source/loudmon/filter_ui.h"/>
+      <FILE id="Mmr7AD" name="filter_ui.cpp" compile="1" resource="0" file="Source/loudmon/filter_ui.cpp"/>
+      <FILE id="Mmr7AE" name="log_slider.h" compile="0" resource="0" file="Source/loudmon/log_slider.h"/>
+      <FILE id="Mmr7AF" name="log_slider.cpp" compile="1" resource="0" file="Source/loudmon/log_slider.cpp"/>
+      <FILE id="Mmr7B0" name="utils.h" compile="0" resource="0" file="Source/loudmon/utils.h"/>
+      <FILE id="Mmr7B1" name="utils.cpp" compile="1" resource="0" file="Source/loudmon/utils.cpp"/>
+      <FILE id="Mmr7B2" name="debug_output.h" compile="0" resource="0" file="Source/loudmon/debug_output.h"/>
+      <FILE id="Mmr7B3" name="debug_output.cpp" compile="1" resource="0" file="Source/loudmon/debug_output.cpp"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
@@ -35,6 +42,8 @@
         <MODULEPATH id="juce_gui_basics" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_opengl" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../3rdparty/JUCE/modules"/>
+        <MODULEPATH id="juce_osc" path="../3rdparty/JUCE/modules"/>
       </MODULEPATHS>
     </VS2019>
     <VS2017 targetFolder="Builds/VisualStudio2017">
@@ -57,6 +66,8 @@
         <MODULEPATH id="juce_gui_basics" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_opengl" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../3rdparty/JUCE/modules"/>
+        <MODULEPATH id="juce_osc" path="../3rdparty/JUCE/modules"/>
       </MODULEPATHS>
     </VS2017>
     <LINUX_MAKE targetFolder="Builds/LinuxMakefile">
@@ -80,6 +91,8 @@
         <MODULEPATH id="juce_audio_devices" path="../../modules"/>
         <MODULEPATH id="juce_audio_basics" path="../../modules"/>
         <MODULEPATH id="juce_audio_plugin_client"/>
+        <MODULEPATH id="juce_dsp" path="../3rdparty/JUCE/modules"/>
+        <MODULEPATH id="juce_osc" path="../3rdparty/JUCE/modules"/>
       </MODULEPATHS>
     </LINUX_MAKE>
     <NINJA targetFolder="Builds/Ninja">
@@ -117,11 +130,13 @@
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_opengl" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_osc" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
   </MODULES>
   <LIVE_SETTINGS>
     <WINDOWS/>

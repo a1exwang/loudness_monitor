@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(loudness_monitor)
+set(CMAKE_CXX_STANDARD 17)
 
 if (BUILD_FRUT)
   set(JUCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/JUCE")
