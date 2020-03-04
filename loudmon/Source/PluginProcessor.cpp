@@ -80,12 +80,29 @@ void NewProjectAudioProcessor::changeProgramName (int index, const String& newNa
 {
 }
 
+IIRCoefficients operator+(const IIRCoefficients &lhs, const IIRCoefficients &rhs) {
+  IIRCoefficients ret;
+  for (int i = 0; i < sizeof(lhs.coefficients)/sizeof(lhs.coefficients[0]); i++) {
+    ret.coefficients[i] = lhs.coefficients[i] + rhs.coefficients[i];
+  }
+  return ret;
+}
 //==============================================================================
 void NewProjectAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) {
   auto input_channels = getTotalNumInputChannels();
   auto output_channels = getTotalNumOutputChannels();
   assert(output_channels >= input_channels);
   editor->prepare_to_play(sampleRate, samplesPerBlock, input_channels);
+
+  low_filter.resize(input_channels);
+  mid_filter.resize(input_channels);
+  high_filter.resize(input_channels);
+  for (int i = 0; i < mid_filter.size(); i++) {
+    low_filter[i].coefficients = dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, freq_split_lowmid, q);
+    mid_filter[i].get<0>() = dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, freq_split_midhigh, q);
+    mid_filter[i].get<1>() = dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, freq_split_lowmid, q);
+    high_filter[i].coefficients = dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, freq_split_midhigh, q);
+  }
 }
 
 void NewProjectAudioProcessor::releaseResources()
@@ -118,6 +135,22 @@ bool NewProjectAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
+template <typename T>
+T calculate_rms(const T *data, size_t size) {
+  double sum = 0;
+  for (size_t i = 0; i < size; i++) {
+    sum += data[i] * data[i];
+  }
+  sum /= size;
+  std::stringstream ss;
+  if (sum > 0) {
+    return static_cast<T>(10.0 * log10(sum));
+  }
+  else {
+    return std::numeric_limits<T>::min();
+  }
+}
+
 void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages) {
   auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -130,32 +163,46 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
   /* RMS calculation. Calculate for the whole block */
   std::vector<float> rms;
   for (int channel = 0; channel < totalNumInputChannels; ++channel) {
-    double sum = 0;
-    for (size_t i = 0; i < buffer.getNumSamples(); i++) {
-      auto y = *input0.getReadPointer(channel, i);
-      sum += y * y;
-    }
-    sum /= buffer.getNumSamples();
-    std::stringstream ss;
-    if (sum > 0) {
-      auto db = static_cast<float>(10.0 * log10(sum));
-      rms.push_back(db);
-    }
-    else {
-      rms.push_back(std::numeric_limits<float>::min());
-    }
+    rms.push_back(calculate_rms(input0.getArrayOfReadPointers()[channel], getBlockSize()));
   }
-  editor->set_rms(rms);
-
+  editor->set_input_rms(rms);
 
   // Apply filters
-  for (int channel = 0; channel < totalNumInputChannels; ++channel) {
-    for (size_t i = 0; i < buffer.getNumSamples(); i++) {
-      auto x = *input0.getReadPointer(channel, i);
-      auto y = editor->filter_process(channel, x);
-      *input0.getWritePointer(channel, i) = y;
-    }
+  std::vector<float> channel_data(buffer.getNumSamples());
+
+  dsp::AudioBlock<float> audio_block(input0);
+  dsp::ProcessContextReplacing<float> context_replacing_main(audio_block);
+
+  std::stringstream mid_rms, low_rms, high_rms;
+  for (int channel = 0; channel < totalNumInputChannels; channel++) {
+    AudioBuffer<float> audio_buffer_main(1, getBlockSize());
+    audio_buffer_main.copyFrom(0, 0, input0, channel, 0, getBlockSize());
+    dsp::AudioBlock<float> audio_block_main(audio_buffer_main);
+    dsp::ProcessContextReplacing<float> replacing_context_main(audio_block_main);
+    editor->filter_process(channel, replacing_context_main);
+    input0.copyFrom(channel, 0, audio_buffer_main, 0, 0, getBlockSize());
+
+    AudioBuffer<float> audio_buffer_filter(1, getBlockSize());
+    audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
+    dsp::AudioBlock<float> audio_block_filter(audio_buffer_filter);
+    dsp::ProcessContextReplacing<float> replacing_context(audio_block_filter);
+    mid_filter[channel].process(replacing_context);
+    auto channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
+    mid_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
+
+    audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
+    low_filter[channel].process(replacing_context);
+    channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
+    low_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
+
+    audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
+    high_filter[channel].process(replacing_context);
+    channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
+    high_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
   }
+  editor->add_display_value("Output Low RMS", low_rms.str());
+  editor->add_display_value("Output Mid RMS", mid_rms.str());
+  editor->add_display_value("Output High RMS", high_rms.str());
 
   // Calculate latency
   auto callback_interval = std::chrono::duration<float>(t0 - last_process_time).count();

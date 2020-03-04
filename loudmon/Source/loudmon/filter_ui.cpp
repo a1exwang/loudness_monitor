@@ -7,12 +7,12 @@ FilterTransferFunctionComponent::FilterTransferFunctionComponent(double sample_r
      input_channels_(input_channels),
      fft_order_(fft_order), fft_size_(1ul << fft_order),
      forward_fft(fft_order),
-     spectrum_(fft_size_*2, 0),
-     filters_(input_channels),
+     spectrum_(1, fft_size_*2),
      frequency_slider_("Frequency"),
-     quality_slider_("Q") {
+     quality_slider_("Q"),
+     filters_(input_channels_) {
 
-  set_parameters(sample_rate/2, 1);
+  set_parameters(sqrt(20*20000), 1);
 
   float freq_min = 20, freq_max = sample_rate/2;
   frequency_slider_.setOnValueChange(std::bind(&FilterTransferFunctionComponent::filter_parameter_changed, this));
@@ -58,23 +58,27 @@ void FilterTransferFunctionComponent::set_parameters(double frequency, float qua
   frequency_ = frequency;
   quality_ = quality;
 
-  std::fill(spectrum_.begin(), spectrum_.end(), 0);
-  spectrum_[0] = 1;
+  IIRCoefficients coeffs;
+  coeffs = IIRCoefficients::makeLowPass(sample_rate_, frequency_, quality_);
 
   {
     std::unique_lock<spinlock> _(filters_lock_);
     for (auto &filter : filters_) {
-      filter.setCoefficients(IIRCoefficients::makeLowPass(sample_rate_, frequency_, quality_));
+      filter.get<0>() = dsp::IIR::Coefficients<float>::makeHighPass(sample_rate_, frequency_*0.9, quality_);
+      filter.get<1>()= dsp::IIR::Coefficients<float>::makeLowPass(sample_rate_, frequency_*1.1, quality_);
     }
   }
 
-  filter_for_display_.reset();
-  filter_for_display_.setCoefficients(IIRCoefficients::makeLowPass(sample_rate_, frequency_, quality_));
-  filter_for_display_.processSamples(spectrum_.data(), spectrum_.size());
-  // clean impulse data, because we don't want it to affect future processing
-  forward_fft.performFrequencyOnlyForwardTransform(spectrum_.data());
-  for (float &value : spectrum_) {
-    value = 10 * log10f(value);
+  filter_for_display_.get<0>() = dsp::IIR::Coefficients<float>::makeHighPass(sample_rate_, frequency_*0.9, quality_);
+  filter_for_display_.get<1>() = dsp::IIR::Coefficients<float>::makeLowPass(sample_rate_, std::min(frequency_*1.1, sample_rate_/2), quality_);
+  spectrum_.clear();
+  spectrum_.setSample(0, 0, 1);
+  dsp::AudioBlock<float> audio_block(spectrum_);
+  dsp::ProcessContextReplacing<float> context_replacing(audio_block);
+  filter_for_display_.process(context_replacing);
+  forward_fft.performFrequencyOnlyForwardTransform(spectrum_.getArrayOfWritePointers()[0]);
+  for (size_t i = 0; i < spectrum_.getNumSamples(); i++) {
+    spectrum_.setSample(0, i, 10 * log10f(spectrum_.getSample(0, i)));
   }
 }
 void FilterTransferFunctionComponent::paint_transfer_function(Graphics &g, float left, float top, float width, float height) {
@@ -84,36 +88,24 @@ void FilterTransferFunctionComponent::paint_transfer_function(Graphics &g, float
   float value_height = 30;
   float font_height = 16;
   float dot_radius = 4;
-  float x_min = 0, x_max = static_cast<float>(sample_rate_)/2, y_min = -50, y_max = 10;
-//  float left = 0, top = slider_height_, width = getWidth(), height = getHeight() - slider_height_;
+  float x_min = 20, x_max = static_cast<float>(sample_rate_)/2, y_min = -50, y_max = 10;
 
   float ox = left + pad+value_width, oy = top + height-pad*2-value_height;
   float app_x_max = left + width - pad, app_y_min = top + pad;
   /* Unreadable code begins */
-  bool use_log = true;
-  auto map_point = [use_log, this, x_min, x_max, y_min, y_max, pad, value_width, value_height, ox, oy, app_x_max, app_y_min](float x, float y)
+  auto map_point = [this, x_min, x_max, y_min, y_max, pad, value_width, value_height, ox, oy, app_x_max, app_y_min](float x, float y)
       -> std::tuple<float, float> {
-    if (use_log) {
-      auto result_x = scale_to<double>(linear_normalize<double>(log(linear_normalize<double>(x, x_min, x_max)+1), 0, log(2)), ox, app_x_max);
-      auto result_y = scale_to<double>(linear_normalize<double>(log(1-linear_normalize<double>(y, y_min, y_max)+1), 0, log(2)), app_y_min, oy);
-      return {result_x, result_y};
-    } else {
-      return std::make_tuple<float, float>(
-          scale_to<float>(linear_normalize(x, x_min, x_max), ox, app_x_max),
-          scale_to<float>(1-linear_normalize(y, y_min, y_max), app_y_min, oy));
-    }
+    auto k = x_min / (x_max - x_min);
+    auto result_x = scale_to<double>(linear_normalize<double>(log(linear_normalize(x, x_min, x_max)+k), log(k), log(1+k)), ox, app_x_max);
+    auto result_y = scale_to<double>(1-linear_normalize(y, y_min, y_max), app_y_min, oy);
+    return {result_x, result_y};
   };
-  auto map_point_reverse = [use_log, this, x_min, x_max, y_min, y_max, pad, value_width, value_height, ox, oy, app_x_max, app_y_min](float x, float y)
+  auto map_point_reverse = [this, x_min, x_max, y_min, y_max, pad, value_width, value_height, ox, oy, app_x_max, app_y_min](float x, float y)
       -> std::tuple<float, float> {
-    if (use_log) {
-      auto result_x = scale_to<double>(linear_normalize<double>(exp(linear_normalize(x,ox,app_x_max)), 1, exp(1)), x_min, x_max);
-      auto result_y = scale_to<double>(1-linear_normalize<double>(exp(linear_normalize(y,app_y_min,oy)), 1, exp(1)), y_min, y_max);
-      return {result_x, result_y};
-    } else {
-      return std::make_tuple<float, float>(
-          scale_to<float>(linear_normalize(x, ox, app_x_max), x_min, x_max),
-          scale_to<float>(1-linear_normalize(y, app_y_min, oy), y_min, y_max));
-    }
+    auto k = log(x_max/x_min);
+    auto result_x = scale_to<double>(linear_normalize<double>(exp(linear_normalize(x, ox, app_x_max)*k), 1, exp(k)), x_min, x_max);
+    auto result_y = scale_to<double>(1-linear_normalize(y, app_y_min, oy), y_min, y_max);
+    return {result_x, result_y};
   };
 
   g.setColour(Colour(0xffffff00));
@@ -127,9 +119,6 @@ void FilterTransferFunctionComponent::paint_transfer_function(Graphics &g, float
   g.setFont(font_height);
   // draw x axis and y axis in one loop
   for (size_t i = 0; i <= n; i++) {
-//    auto original_x = x_min + (x_max-x_min)*i/n;
-//    auto original_y = y_min + (y_max-y_min)*i/n;
-//    auto [x, y] = map_point(original_x, original_y);
     auto x = ox + (app_x_max-ox)*i/n;
     auto y = app_y_min + (oy-app_y_min)*i/n;
     auto [original_x, original_y] = map_point_reverse(x, y);
@@ -143,8 +132,8 @@ void FilterTransferFunctionComponent::paint_transfer_function(Graphics &g, float
   }
 
   for (size_t i = 1; i < fft_size_/2; i++) {
-    auto [x1, y1] = map_point(double(i)/fft_size_ * sample_rate_, spectrum_[i-1]);
-    auto [x2, y2] = map_point(double(i+1)/fft_size_ * sample_rate_, spectrum_[i]);
+    auto [x1, y1] = map_point(double(i)/fft_size_ * sample_rate_, spectrum_.getSample(0, i-1));
+    auto [x2, y2] = map_point(double(i+1)/fft_size_ * sample_rate_, spectrum_.getSample(0, i));
     if (y1 >= app_y_min && y1 < oy && y2 >= app_y_min && y2 < oy) {
       g.drawLine(x1, y1, x2, y2);
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "loudmon/filter_ui.h"
 
 
 class MainComponent;
@@ -43,6 +44,11 @@ class NewProjectAudioProcessor  : public AudioProcessor {
   std::vector<std::vector<float>> loudness_buffer;
   Component::SafePointer<MainComponent> editor;
   std::chrono::high_resolution_clock::time_point last_process_time;
+
+  float freq_split_lowmid = 200, freq_split_midhigh = 2000;
+  float q = 0.1;
+  std::vector<dsp::IIR::Filter<float>> low_filter, high_filter;
+  std::vector<PeakFilter<float>> mid_filter;
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NewProjectAudioProcessor)
 };

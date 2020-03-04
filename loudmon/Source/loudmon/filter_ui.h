@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 
 #include <utility>
+#include <list>
 #include "log_slider.h"
 
 class spinlock {
@@ -20,6 +21,37 @@ class spinlock {
   std::atomic_flag flag_;
 };
 
+template <typename T>
+class FilterSeries {
+ public:
+
+  void reset() {
+    for (auto &filter : filters_) {
+      filter.reset();
+    }
+  }
+
+  T processSample(T value) noexcept {
+    for (auto &filter : filters_) {
+      value = filter.processSample(value);
+    }
+    return value;
+  }
+
+  template <typename Context>
+  void process (Context &context) {
+    for (auto &filter : filters_) {
+      filter.template process<Context>(context);
+    }
+  }
+
+  std::vector<dsp::IIR::Filter<T>> filters_;
+};
+
+
+template<typename T>
+using PeakFilter = dsp::ProcessorChain<dsp::IIR::Filter<T>, dsp::IIR::Filter<T>>;
+
 class FilterTransferFunctionComponent :public juce::Component {
  public:
   FilterTransferFunctionComponent(double sample_rate, size_t input_channels, size_t fft_order = 10);
@@ -36,10 +68,12 @@ class FilterTransferFunctionComponent :public juce::Component {
     set_parameters(frequency_slider_.getValue(), quality_slider_.getValue());
   }
 
-  float process(size_t channel, float value) {
+  template <typename Context>
+  void process(int channel, Context &context) {
     std::unique_lock<spinlock> _(filters_lock_);
-    return filters_[channel].processSingleSampleRaw(value);
+    filters_[channel].process(context);
   }
+
  private:
   void set_parameters(double frequency, float quality);
 
@@ -50,12 +84,13 @@ class FilterTransferFunctionComponent :public juce::Component {
   size_t fft_order_, fft_size_;
 
   LogSlider frequency_slider_, quality_slider_;
-  std::vector<IIRFilter> filters_;
-  IIRFilter filter_for_display_;
+  std::vector<PeakFilter<float>> filters_;
+//  IIRFilter filter_for_display_;
+  PeakFilter<float> filter_for_display_;
   spinlock filters_lock_;
 
   dsp::FFT forward_fft;
-  std::vector<float> spectrum_;
+  AudioBuffer<float> spectrum_;
 
   // UI values
   float slider_height_ = 120;
