@@ -5,21 +5,8 @@
 #include <utility>
 #include <list>
 #include "log_slider.h"
-
-class spinlock {
- public:
-  void lock() {
-    while (!flag_.test_and_set(std::memory_order_acq_rel));
-  }
-  void unlock() {
-    flag_.clear(std::memory_order_release);
-  }
-  bool try_lock() {
-    return flag_.test_and_set(std::memory_order_acq_rel);
-  }
- private:
-  std::atomic_flag flag_;
-};
+#include "utils.h"
+#include "plot.h"
 
 template <typename T>
 class FilterSeries {
@@ -62,6 +49,7 @@ class FilterTransferFunctionComponent :public juce::Component {
     auto slider_area = area.removeFromTop(slider_height_);
     frequency_slider_.setBounds(slider_area.removeFromLeft(area.getWidth()/slider_count_));
     quality_slider_.setBounds(slider_area.removeFromLeft(area.getWidth()/slider_count_));
+    plot_.setBounds(area);
   }
 
   void filter_parameter_changed() {
@@ -84,6 +72,7 @@ class FilterTransferFunctionComponent :public juce::Component {
   size_t fft_order_, fft_size_;
 
   LogSlider frequency_slider_, quality_slider_;
+  PlotComponent plot_;
   std::vector<PeakFilter<float>> filters_;
 //  IIRFilter filter_for_display_;
   PeakFilter<float> filter_for_display_;

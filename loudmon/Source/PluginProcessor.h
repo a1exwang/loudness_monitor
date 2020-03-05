@@ -44,6 +44,7 @@ class NewProjectAudioProcessor  : public AudioProcessor {
   std::vector<std::vector<float>> loudness_buffer;
   Component::SafePointer<MainComponent> editor;
   std::chrono::high_resolution_clock::time_point last_process_time;
+  size_t late_block_count_ = 0;
 
   float freq_split_lowmid = 200, freq_split_midhigh = 2000;
   float q = 0.1;

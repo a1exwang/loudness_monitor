@@ -17,7 +17,7 @@ void log(int level, const std::string &s) {
   }
 }
 
-inline DebugOutputComponent::DebugOutputComponent() :mono_font("Noto Sans Mono", 20, Font::plain) {
+DebugOutputComponent::DebugOutputComponent() :mono_font("Noto Sans Mono", 20, Font::plain) {
   if (the_main_logger == nullptr) {
     the_main_logger = this;
   }

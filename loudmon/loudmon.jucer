@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="dq01xz" name="loudmon" projectType="audioplug" jucerVersion="5.4.7"
-              headerPath="../vst2sdk/" pluginFormats="buildAU,buildStandalone,buildVST,buildVST3">
+              headerPath="../vst2sdk/" pluginFormats="buildAU,buildStandalone,buildVST,buildVST3"
+              cppLanguageStandard="17">
   <MAINGROUP id="uY6Nur" name="NewProject">
     <GROUP id="{BABD80EF-84CB-D59C-6B7E-F9B098595461}" name="Source">
       <FILE id="fLGyEz" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -18,7 +19,14 @@
       <FILE id="Mmr7B0" name="utils.h" compile="0" resource="0" file="Source/loudmon/utils.h"/>
       <FILE id="Mmr7B1" name="utils.cpp" compile="1" resource="0" file="Source/loudmon/utils.cpp"/>
       <FILE id="Mmr7B2" name="debug_output.h" compile="0" resource="0" file="Source/loudmon/debug_output.h"/>
-      <FILE id="Mmr7B3" name="debug_output.cpp" compile="1" resource="0" file="Source/loudmon/debug_output.cpp"/>
+      <FILE id="Mmr7B3" name="debug_output.cpp" compile="1" resource="0"
+            file="Source/loudmon/debug_output.cpp"/>
+      <FILE id="Mmr7B4" name="oscilloscope.h" compile="0" resource="0" file="Source/loudmon/oscilloscope.h"/>
+      <FILE id="Mmr7B5" name="oscilloscope.cpp" compile="1" resource="0"
+            file="Source/loudmon/oscilloscope.cpp"/>
+      <FILE id="Mmr7B6" name="plot.h" compile="0" resource="0" file="Source/loudmon/plot.h"/>
+      <FILE id="Mmr7B7" name="plot.cpp" compile="1" resource="0"
+            file="Source/loudmon/plot.cpp"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>

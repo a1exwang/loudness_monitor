@@ -7,35 +7,46 @@
 
 MainComponent::MainComponent(NewProjectAudioProcessor& p)
     : AudioProcessorEditor(p),
-      main_info_(std::bind(&MainComponent::repaint_safe, this)) {
+      main_info_(std::bind(&MainComponent::repaint_safe, this)),
+      menu_bar_(this) {
 
   Desktop::getInstance().setGlobalScaleFactor(2);
 
   setResizable(true, true);
   setSize(400, 800);
+  setResizeLimits(300, 300, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+  addAndMakeVisible(menu_bar_);
 
   addAndMakeVisible(info_text);
   info_text.setFont (Font (16.0f, Font::bold));
   info_text.setText("Info", NotificationType::dontSendNotification);
   info_text.setColour(Label::textColourId, Colours::orange);
   info_text.setJustificationType (Justification::left);
-  info_text.setBounds(10, 10, getWidth() - 20, 400 - 20);
+//  info_text.setBounds(10, 10, getWidth() - 20, 400 - 20);
 
-//  dw = new DebugOutputWindow("Debug Window", Colour(0), true);
-//  dw->setSize(1024, 400);
-//  dw->setResizable(true, true);
+  addAndMakeVisible(oscilloscope_);
+
+  debug_window = new DebugOutputWindow("Debug Window", Colour(0), true);
+  debug_window->setSize(1024, 400);
+  debug_window->setResizable(true, true);
 
   startTimerHz(30);
 }
 
 MainComponent::~MainComponent() {
-  dw.deleteAndZero();
-  dw = nullptr;
+  debug_window.deleteAndZero();
+  debug_window = nullptr;
+}
+
+void MainComponent::toggle_debug_window() {
+  debug_window_visible_ = !debug_window_visible_;
+  debug_window->setVisible(debug_window_visible_ && isVisible());
 }
 
 void MainComponent::visibilityChanged() {
-  if (dw) {
-    dw->setVisible(isVisible());
+  if (debug_window) {
+    debug_window->setVisible(isVisible() && debug_window_visible_);
   }
 }
 

@@ -29,6 +29,10 @@ class LogSlider : public juce::Component {
     resize_children();
   }
 
+  void setSliderStyle(juce::Slider::SliderStyle new_style) {
+    slider_.setSliderStyle(new_style);
+  }
+
   void resize_children() {
     auto area = getLocalBounds();
     label_.setBounds(area.removeFromTop(std::min(label_min_height, label_height_ratio*area.getHeight())));
