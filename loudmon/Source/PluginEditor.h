@@ -97,8 +97,14 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
       {
           "Debug",
           {
-              {"Show Debug Window", std::bind(&MainComponent::toggle_debug_window, this)}
-             }
+              {"Toggle Debug Window", std::bind(&MainComponent::toggle_debug_window, this)}
+          }
+      },
+      {
+          "Filter",
+          {
+              {"Toggle Main Filter", std::bind(&MainComponent::toggle_main_filter, this)}
+          }
       }
   };
 
@@ -137,7 +143,15 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
     }
   }
 
+  [[nodiscard]]
+  bool is_main_filter_enabled() const {
+    return main_filter_enabled.load();
+  }
+
   void toggle_debug_window();
+  void toggle_main_filter() {
+    main_filter_enabled.fetch_xor(1);
+  }
 
   /* Component callbacks, UI thread */
   void visibilityChanged() override;
@@ -259,6 +273,8 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   std::mutex queue_lock;
   Component::SafePointer<DebugOutputWindow> debug_window;
   bool debug_window_visible_ = false;
+
+  std::atomic<int> main_filter_enabled = false;
   std::unique_ptr<FilterTransferFunctionComponent> filter;
   std::chrono::high_resolution_clock::time_point last_paint_time;
   AudioBuffer<float> buffer_;

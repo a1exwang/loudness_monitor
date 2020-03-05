@@ -175,12 +175,14 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
 
   std::stringstream mid_rms, low_rms, high_rms;
   for (int channel = 0; channel < totalNumInputChannels; channel++) {
-//    AudioBuffer<float> audio_buffer_main(1, getBlockSize());
-//    audio_buffer_main.copyFrom(0, 0, input0, channel, 0, getBlockSize());
-//    dsp::AudioBlock<float> audio_block_main(audio_buffer_main);
-//    dsp::ProcessContextReplacing<float> replacing_context_main(audio_block_main);
-//    editor->filter_process(channel, replacing_context_main);
-//    input0.copyFrom(channel, 0, audio_buffer_main, 0, 0, getBlockSize());
+    if (editor->is_main_filter_enabled()) {
+      AudioBuffer<float> audio_buffer_main(1, getBlockSize());
+      audio_buffer_main.copyFrom(0, 0, input0, channel, 0, getBlockSize());
+      dsp::AudioBlock<float> audio_block_main(audio_buffer_main);
+      dsp::ProcessContextReplacing<float> replacing_context_main(audio_block_main);
+      editor->filter_process(channel, replacing_context_main);
+      input0.copyFrom(channel, 0, audio_buffer_main, 0, 0, getBlockSize());
+    }
 
     AudioBuffer<float> audio_buffer_filter(1, getBlockSize());
     audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
