@@ -14,9 +14,17 @@ NewProjectAudioProcessor::NewProjectAudioProcessor()
                        )
 #endif
 {
+
   // Start with the max number of voices
   for (auto i = 0; i != 16; ++i) {
-    synthesiser_.addVoice(new MPESimpleVoice());
+    synthesiser_.addVoice(new MPESimpleVoice([this]() -> SynthControl* {
+      auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
+      if (editor) {
+        return &editor->get_synth_control();
+      } else {
+        return nullptr;
+      }
+    }));
   }
 }
 
@@ -242,6 +250,7 @@ bool NewProjectAudioProcessor::hasEditor() const {
 
 AudioProcessorEditor* NewProjectAudioProcessor::createEditor() {
   auto ret = new MainComponent(*this, getSampleRate(), getBlockSize(), getTotalNumInputChannels());
+
   return ret;
 }
 

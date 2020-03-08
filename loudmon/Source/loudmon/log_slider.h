@@ -8,7 +8,7 @@ class LogSliderInternal : public juce::Slider {
     setSliderStyle(Slider::SliderStyle::LinearVertical);
   }
 
-  void setRangeLogarithm(float min, float max) {
+  void setRangeLogarithm(double min, double max) {
     setRange(min, max);
     auto mid = sqrt(min* max);
     setSkewFactorFromMidPoint(mid);
@@ -21,10 +21,14 @@ class LogSliderInternal : public juce::Slider {
 
 class LogSlider : public juce::Component {
  public:
-  explicit LogSlider(std::string name) : name_(std::move(name)) {
+  explicit LogSlider(std::string name) : name_(std::move(name)), has_name_(true) {
     label_.setText(name_, dontSendNotification);
     label_.setJustificationType(Justification::horizontallyCentred);
     addAndMakeVisible(label_);
+    addAndMakeVisible(slider_);
+    resize_children();
+  }
+  LogSlider() : has_name_(false) {
     addAndMakeVisible(slider_);
     resize_children();
   }
@@ -35,11 +39,13 @@ class LogSlider : public juce::Component {
 
   void resize_children() {
     auto area = getLocalBounds();
-    label_.setBounds(area.removeFromTop(std::min(label_min_height, label_height_ratio*area.getHeight())));
+    if (has_name_) {
+      label_.setBounds(area.removeFromTop(std::min(label_min_height, label_height_ratio*area.getHeight())));
+    }
     slider_.setBounds(area);
   }
 
-  void setRangeLogarithm(float min, float max) {
+  void setRangeLogarithm(double min, double max) {
     slider_.setRangeLogarithm(min, max);
   }
 
@@ -60,6 +66,7 @@ class LogSlider : public juce::Component {
   }
 
  private:
+  bool has_name_;
   std::string name_;
   juce::Label label_;
   LogSliderInternal slider_;

@@ -9,6 +9,7 @@
 #include "PluginProcessor.h"
 #include "loudmon/filter_ui.h"
 #include "loudmon/oscilloscope.h"
+#include "synth/synth.h"
 
 class DebugOutputWindow;
 class MainInfo {
@@ -252,6 +253,10 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
     return ret;
   }
 
+  SynthControl &get_synth_control() {
+    return synth_control_;
+  }
+
  protected:
   void resize_children();
   void enqueue(std::function<void()> action);
@@ -268,13 +273,15 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   Component::SafePointer<DebugOutputWindow> debug_window;
   bool debug_window_visible_ = false;
 
-  juce::MidiKeyboardState keyboard_state_;
-  juce::MidiKeyboardComponent keyboard_;
-
   std::atomic<int> main_filter_enabled = false;
   std::unique_ptr<FilterTransferFunctionComponent> filter;
   std::chrono::high_resolution_clock::time_point last_paint_time;
   AudioBuffer<float> buffer_;
+
+  juce::MidiKeyboardState keyboard_state_;
+  juce::MidiKeyboardComponent keyboard_;
+
+  SynthControl synth_control_;
   //==============================================================================
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

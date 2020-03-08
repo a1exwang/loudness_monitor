@@ -50,7 +50,7 @@ class NewProjectAudioProcessor  : public AudioProcessor {
   MPESynthesiser synthesiser_;
 
   float freq_split_lowmid = 200, freq_split_midhigh = 2000;
-  float q = 0.1;
+  float q = 0.1f;
   std::vector<dsp::IIR::Filter<float>> low_filter, high_filter;
   std::vector<PeakFilter<float>> mid_filter;
   //==============================================================================

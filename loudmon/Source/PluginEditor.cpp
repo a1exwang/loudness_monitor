@@ -24,6 +24,7 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
   addAndMakeVisible(menu_bar_);
 
   addAndMakeVisible(keyboard_);
+  addAndMakeVisible(synth_control_);
 
   addAndMakeVisible(info_text);
   info_text.setFont (Font (16.0f, Font::bold));
@@ -92,6 +93,7 @@ void MainComponent::resize_children() {
   menu_bar_.setBounds(area.removeFromTop (LookAndFeel::getDefaultLookAndFeel().getDefaultMenuBarHeight()));
   keyboard_.setBounds(area.removeFromBottom(50));
   auto control_area = area.removeFromLeft(area.getWidth()*(1.0/3.0));
+  synth_control_.setBounds(control_area);
   auto total_height = area.getHeight();
   info_text.setBounds(area.removeFromTop(total_height/4));
   oscilloscope_.setBounds(area.removeFromTop(total_height/4));
