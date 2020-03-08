@@ -6,11 +6,12 @@
 
 class OscilloscopeComponent :public juce::Component {
  public:
-  OscilloscopeComponent() :y_slider_("y") {
+  explicit OscilloscopeComponent(size_t max_samples) :y_slider_("y") {
     addAndMakeVisible(plot_);
     addAndMakeVisible(x_slider_);
     x_slider_.onValueChange = std::bind(&OscilloscopeComponent::on_slider_change, this);
-    x_slider_.setRange(1, 128);
+    x_slider_.setRange(1, max_samples);
+    x_slider_.setValue(max_samples);
     x_slider_.setSliderStyle(Slider::SliderStyle::LinearHorizontal);
 
     addAndMakeVisible(y_slider_);

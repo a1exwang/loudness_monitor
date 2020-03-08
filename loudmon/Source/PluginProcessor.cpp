@@ -146,6 +146,12 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
   ScopedNoDenormals noDenormals;
   assert(getTotalNumOutputChannels() == synth_channels);
 
+  auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
+  if (editor) {
+    auto keyboard_midi = editor->get_keyboard_midi_buffer(getBlockSize());
+    midiMessages.addEvents(keyboard_midi, 0, getBlockSize(), 0);
+  }
+
   if (getTotalNumInputChannels() == 0) {
     buffer.clear();
     if (synthesiser_.getSampleRate() > 0) {
@@ -161,10 +167,7 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
     }
   }
 
-
   /* RMS calculation. Calculate for the whole block */
-  auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
-
   /**
    * midi_input -> synthesizer -> synth_output
    * audio_output = audio_input(if exists) + synth_output

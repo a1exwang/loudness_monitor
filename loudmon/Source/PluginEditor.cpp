@@ -8,7 +8,9 @@
 MainComponent::MainComponent(NewProjectAudioProcessor& p)
     : AudioProcessorEditor(p),
       main_info_(std::bind(&MainComponent::repaint_safe, this)),
-      menu_bar_(this) {
+      menu_bar_(this),
+      oscilloscope_(256),
+      keyboard_(keyboard_state_, juce::MidiKeyboardComponent::Orientation::horizontalKeyboard) {
 
   if (juce::SystemStats::getOperatingSystemType() == juce::SystemStats::OperatingSystemType::Linux) {
     Desktop::getInstance().setGlobalScaleFactor(2);
@@ -16,10 +18,12 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
     Desktop::getInstance().setGlobalScaleFactor(1);
   }
   setResizable(true, true);
-  setSize(400, 800);
+  setSize(600, 800);
   setResizeLimits(300, 300, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
   addAndMakeVisible(menu_bar_);
+
+  addAndMakeVisible(keyboard_);
 
   addAndMakeVisible(info_text);
   info_text.setFont (Font (16.0f, Font::bold));
@@ -81,4 +85,18 @@ bool MainComponent::dequeue() {
   }
   action();
   return true;
+}
+
+void MainComponent::resize_children() {
+  auto area = getLocalBounds();
+  menu_bar_.setBounds(area.removeFromTop (LookAndFeel::getDefaultLookAndFeel().getDefaultMenuBarHeight()));
+  keyboard_.setBounds(area.removeFromBottom(50));
+  auto control_area = area.removeFromLeft(area.getWidth()*(1.0/3.0));
+  auto total_height = area.getHeight();
+  info_text.setBounds(area.removeFromTop(total_height/4));
+  oscilloscope_.setBounds(area.removeFromTop(total_height/4));
+
+  if (filter) {
+    filter->setBounds(area);
+  }
 }

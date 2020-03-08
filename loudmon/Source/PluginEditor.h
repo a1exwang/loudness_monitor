@@ -239,27 +239,21 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
     });
   }
   void add_display_value(const std::string& key, float value) {
-    enqueue([this, key, value{std::move(value)}]() {
+    enqueue([this, key, value]() {
       main_info_.add_display_value(key, value);
       repaint();
     });
   }
 
- protected:
-  void resize_children() {
-    auto area = getLocalBounds();
-    menu_bar_.setBounds(area.removeFromTop (LookAndFeel::getDefaultLookAndFeel().getDefaultMenuBarHeight()));
-
-    auto widget_height = 200;
-    auto total_height = area.getHeight();
-    info_text.setBounds(area.removeFromTop(total_height/4));
-    oscilloscope_.setBounds(area.removeFromTop(total_height/4));
-
-    if (filter) {
-      filter->setBounds(area);
-    }
+  MidiBuffer get_keyboard_midi_buffer(size_t sample_count) {
+    MidiBuffer ret;
+    // this is thread safe, so we don't need a lock
+    keyboard_state_.processNextMidiBuffer(ret, 0, sample_count, true);
+    return ret;
   }
 
+ protected:
+  void resize_children();
   void enqueue(std::function<void()> action);
   bool dequeue();
 
@@ -273,6 +267,9 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   std::mutex queue_lock;
   Component::SafePointer<DebugOutputWindow> debug_window;
   bool debug_window_visible_ = false;
+
+  juce::MidiKeyboardState keyboard_state_;
+  juce::MidiKeyboardComponent keyboard_;
 
   std::atomic<int> main_filter_enabled = false;
   std::unique_ptr<FilterTransferFunctionComponent> filter;
