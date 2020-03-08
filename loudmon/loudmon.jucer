@@ -3,7 +3,7 @@
 <JUCERPROJECT id="dq01xz" name="loudmon" projectType="audioplug" jucerVersion="5.4.7"
               headerPath="../vst2sdk/" pluginFormats="buildAU,buildStandalone,buildVST,buildVST3"
               cppLanguageStandard="17">
-  <MAINGROUP id="uY6Nur" name="NewProject">
+  <MAINGROUP id="uY6Nur" name="loudness_monitor">
     <GROUP id="{BABD80EF-84CB-D59C-6B7E-F9B098595461}" name="Source">
       <FILE id="fLGyEz" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
@@ -26,6 +26,8 @@
             file="Source/loudmon/oscilloscope.cpp"/>
       <FILE id="Mmr7B6" name="plot.h" compile="0" resource="0" file="Source/loudmon/plot.h"/>
       <FILE id="Mmr7B7" name="plot.cpp" compile="1" resource="0" file="Source/loudmon/plot.cpp"/>
+      <FILE id="Mmr7B8" name="synth.h" compile="0" resource="0" file="Source/synth/synth.h"/>
+      <FILE id="Mmr7B9" name="synth.cpp" compile="1" resource="0" file="Source/synth/synth.cpp"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>

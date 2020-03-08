@@ -6,78 +6,62 @@
 //==============================================================================
 NewProjectAudioProcessor::NewProjectAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", AudioChannelSet::stereo(), true)
-                     #endif
+    : AudioProcessor (BusesProperties()
+#if ! JucePlugin_IsSynth
+                          .withInput  ("Input",  AudioChannelSet::stereo(), true)
+#endif
+                          .withOutput ("Output", AudioChannelSet::stereo(), true)
                        )
 #endif
 {
+  // Start with the max number of voices
+  for (auto i = 0; i != 16; ++i) {
+    synthesiser_.addVoice(new MPESimpleVoice());
+  }
 }
 
 NewProjectAudioProcessor::~NewProjectAudioProcessor() {
 }
 
 const String NewProjectAudioProcessor::getName() const {
-    return JucePlugin_Name;
+  return JucePlugin_Name;
 }
 
 bool NewProjectAudioProcessor::acceptsMidi() const {
-   #if JucePlugin_WantsMidiInput
-    return true;
-   #else
-    return false;
-   #endif
+#if JucePlugin_WantsMidiInput
+  return true;
+#else
+  return false;
+#endif
 }
 
 bool NewProjectAudioProcessor::producesMidi() const {
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
-    return false;
-   #endif
+  return false;
 }
 
-bool NewProjectAudioProcessor::isMidiEffect() const
-{
-   #if JucePlugin_IsMidiEffect
-    return true;
-   #else
-    return false;
-   #endif
+bool NewProjectAudioProcessor::isMidiEffect() const {
+  return false;
 }
 
-double NewProjectAudioProcessor::getTailLengthSeconds() const
-{
+double NewProjectAudioProcessor::getTailLengthSeconds() const {
     return 0.0;
 }
 
-int NewProjectAudioProcessor::getNumPrograms()
-{
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+int NewProjectAudioProcessor::getNumPrograms() {
+    return 1;
 }
 
-int NewProjectAudioProcessor::getCurrentProgram()
-{
+int NewProjectAudioProcessor::getCurrentProgram() {
     return 0;
 }
 
-void NewProjectAudioProcessor::setCurrentProgram (int index)
-{
-}
+void NewProjectAudioProcessor::setCurrentProgram (int index) { }
 
-const String NewProjectAudioProcessor::getProgramName (int index)
-{
+const String NewProjectAudioProcessor::getProgramName (int index) {
     return {};
 }
 
-void NewProjectAudioProcessor::changeProgramName (int index, const String& newName)
-{
-}
+void NewProjectAudioProcessor::changeProgramName (int index, const String& newName) { }
 
 IIRCoefficients operator+(const IIRCoefficients &lhs, const IIRCoefficients &rhs) {
   IIRCoefficients ret;
@@ -91,14 +75,17 @@ void NewProjectAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
   auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
   auto input_channels = getTotalNumInputChannels();
   auto output_channels = getTotalNumOutputChannels();
-  assert(output_channels >= input_channels);
+  assert(input_channels == 0 || input_channels == 2);
+  assert(output_channels == 2);
   if (editor) {
     editor->prepare_to_play(sampleRate, samplesPerBlock, input_channels);
   }
 
-  low_filter.resize(input_channels);
-  mid_filter.resize(input_channels);
-  high_filter.resize(input_channels);
+  synthesiser_.setCurrentPlaybackSampleRate(sampleRate);
+
+  low_filter.resize(synth_channels);
+  mid_filter.resize(synth_channels);
+  high_filter.resize(synth_channels);
   for (int i = 0; i < mid_filter.size(); i++) {
     low_filter[i].coefficients = dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, freq_split_lowmid, q);
     mid_filter[i].get<0>() = dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, freq_split_midhigh, q);
@@ -157,68 +144,81 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
   auto t0 = std::chrono::high_resolution_clock::now();
 
   ScopedNoDenormals noDenormals;
-  auto totalNumInputChannels  = getTotalNumInputChannels();
-  auto totalNumOutputChannels = getTotalNumOutputChannels();
+  assert(getTotalNumOutputChannels() == synth_channels);
 
-  auto input0 = getBusBuffer(buffer, true, 0);
+  if (getTotalNumInputChannels() == 0) {
+    buffer.clear();
+    if (synthesiser_.getSampleRate() > 0) {
+      synthesiser_.renderNextBlock(buffer, midiMessages, 0, getBlockSize());
+    }
+  } else {
+    if (synthesiser_.getSampleRate() > 0) {
+      AudioBuffer<float> synth_buffer(synth_channels, getBlockSize());
+      synthesiser_.renderNextBlock(synth_buffer, midiMessages, 0, getBlockSize());
+      for (int i = 0; i < buffer.getNumChannels(); i++) {
+        FloatVectorOperations::add(buffer.getWritePointer(i), synth_buffer.getReadPointer(i), buffer.getNumSamples());
+      }
+    }
+  }
+
 
   /* RMS calculation. Calculate for the whole block */
   auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
-  if (!editor) {
-    return;
-  }
-  std::vector<float> rms;
-  rms.reserve(totalNumInputChannels);
-  for (int channel = 0; channel < totalNumInputChannels; ++channel) {
-    rms.push_back(calculate_rms(input0.getArrayOfReadPointers()[channel], getBlockSize()));
-  }
-  editor->set_input_rms(rms);
+
+  /**
+   * midi_input -> synthesizer -> synth_output
+   * audio_output = audio_input(if exists) + synth_output
+   * Do synthesis here and add to buffer output_buffer
+   */
 
   // Apply filters
-  std::vector<float> channel_data(buffer.getNumSamples());
-
-  dsp::AudioBlock<float> audio_block(input0);
-  dsp::ProcessContextReplacing<float> context_replacing_main(audio_block);
-
-  std::stringstream mid_rms, low_rms, high_rms;
-  for (int channel = 0; channel < totalNumInputChannels; channel++) {
-    if (editor->is_main_filter_enabled()) {
-      AudioBuffer<float> audio_buffer_main(1, getBlockSize());
-      audio_buffer_main.copyFrom(0, 0, input0, channel, 0, getBlockSize());
-      dsp::AudioBlock<float> audio_block_main(audio_buffer_main);
-      dsp::ProcessContextReplacing<float> replacing_context_main(audio_block_main);
-      editor->filter_process(channel, replacing_context_main);
-      input0.copyFrom(channel, 0, audio_buffer_main, 0, 0, getBlockSize());
+  if (editor) {
+    std::vector<float> rms;
+    rms.reserve(synth_channels);
+    for (int channel = 0; channel < synth_channels; ++channel) {
+      rms.push_back(calculate_rms(buffer.getArrayOfReadPointers()[channel], getBlockSize()));
     }
+    editor->set_input_rms(rms);
+    std::stringstream mid_rms, low_rms, high_rms;
+    for (int channel = 0; channel < synth_channels; channel++) {
+      if (editor->is_main_filter_enabled()) {
+        AudioBuffer<float> audio_buffer_main(1, getBlockSize());
+        audio_buffer_main.copyFrom(0, 0, buffer, channel, 0, getBlockSize());
+        dsp::AudioBlock<float> audio_block_main(audio_buffer_main);
+        dsp::ProcessContextReplacing<float> replacing_context_main(audio_block_main);
+        editor->filter_process(channel, replacing_context_main);
+        buffer.copyFrom(channel, 0, audio_buffer_main, 0, 0, getBlockSize());
+      }
 
-    AudioBuffer<float> audio_buffer_filter(1, getBlockSize());
-    audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
-    dsp::AudioBlock<float> audio_block_filter(audio_buffer_filter);
-    dsp::ProcessContextReplacing<float> replacing_context(audio_block_filter);
-    mid_filter[channel].process(replacing_context);
-    auto channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
-    mid_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
+      AudioBuffer<float> audio_buffer_filter(1, getBlockSize());
+      audio_buffer_filter.copyFrom(0, 0, buffer, channel, 0, getBlockSize());
+      dsp::AudioBlock<float> audio_block_filter(audio_buffer_filter);
+      dsp::ProcessContextReplacing<float> replacing_context(audio_block_filter);
+      mid_filter[channel].process(replacing_context);
+      auto channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
+      mid_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
 
-    audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
-    low_filter[channel].process(replacing_context);
-    channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
-    low_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
+      audio_buffer_filter.copyFrom(0, 0, buffer, channel, 0, getBlockSize());
+      low_filter[channel].process(replacing_context);
+      channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
+      low_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
 
-    audio_buffer_filter.copyFrom(0, 0, input0, channel, 0, getBlockSize());
-    high_filter[channel].process(replacing_context);
-    channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
-    high_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
+      audio_buffer_filter.copyFrom(0, 0, buffer, channel, 0, getBlockSize());
+      high_filter[channel].process(replacing_context);
+      channel_rms = calculate_rms(audio_buffer_filter.getArrayOfReadPointers()[0], getBlockSize());
+      high_rms << std::fixed << std::setprecision(2) << channel_rms << "dB ";
+    }
+    editor->add_display_value("Output Low RMS", low_rms.str());
+    editor->add_display_value("Output Mid RMS", mid_rms.str());
+    editor->add_display_value("Output High RMS", high_rms.str());
+
+    // Calculate latency
+    auto callback_interval = std::chrono::duration<float>(t0 - last_process_time).count();
+    editor->set_process_block_interval(callback_interval);
+    last_process_time = t0;
+
+    editor->send_block(buffer);
   }
-  editor->add_display_value("Output Low RMS", low_rms.str());
-  editor->add_display_value("Output Mid RMS", mid_rms.str());
-  editor->add_display_value("Output High RMS", high_rms.str());
-
-  // Calculate latency
-  auto callback_interval = std::chrono::duration<float>(t0 - last_process_time).count();
-  editor->set_process_block_interval(callback_interval);
-  last_process_time = t0;
-
-  editor->send_block(input0);
 
   auto t1 = std::chrono::high_resolution_clock::now();
   std::chrono::duration<float> total_latency = t1 - t0;
@@ -226,7 +226,10 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
   if (total_latency.count() > max_latency_expected) {
     late_block_count_++;
   }
-  editor->set_latency_ms(total_latency.count() * 1000, max_latency_expected * 1000, late_block_count_);
+
+  if (editor) {
+    editor->set_latency_ms(total_latency.count() * 1000, max_latency_expected * 1000, late_block_count_);
+  }
 }
 
 //==============================================================================

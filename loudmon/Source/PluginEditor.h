@@ -100,8 +100,11 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
       {
           "UI Scaling",
           {
+              {"50%", std::bind(&MainComponent::setScaleFactor, this, 0.5)},
               {"100%", std::bind(&MainComponent::setScaleFactor, this, 1)},
+              {"125%", std::bind(&MainComponent::setScaleFactor, this, 1.25)},
               {"150%", std::bind(&MainComponent::setScaleFactor, this, 1.5)},
+              {"175%", std::bind(&MainComponent::setScaleFactor, this, 1.75)},
               {"200%", std::bind(&MainComponent::setScaleFactor, this, 2)},
               {"250%", std::bind(&MainComponent::setScaleFactor, this, 2.5)},
           }

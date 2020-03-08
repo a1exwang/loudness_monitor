@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "loudmon/filter_ui.h"
+#include "synth/synth.h"
 
 
 class MainComponent;
@@ -19,7 +20,7 @@ class NewProjectAudioProcessor  : public AudioProcessor {
   bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
 #endif
 
-  void processBlock (AudioBuffer<float>&, MidiBuffer&) override;
+  void processBlock(AudioBuffer<float>&, MidiBuffer&) override;
 
   AudioProcessorEditor* createEditor() override;
   bool hasEditor() const override;
@@ -42,8 +43,11 @@ class NewProjectAudioProcessor  : public AudioProcessor {
 
  private:
   std::vector<std::vector<float>> loudness_buffer;
+  AudioBuffer<float> synth_output_buffer;
+  size_t synth_channels = 2;
   std::chrono::high_resolution_clock::time_point last_process_time;
   size_t late_block_count_ = 0;
+  MPESynthesiser synthesiser_;
 
   float freq_split_lowmid = 200, freq_split_midhigh = 2000;
   float q = 0.1;
