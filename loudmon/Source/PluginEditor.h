@@ -91,9 +91,21 @@ class MainInfo {
 class MainComponent : public AudioProcessorEditor, public juce::Timer, public juce::MenuBarModel {
  public:
   explicit MainComponent(NewProjectAudioProcessor& p);
+  MainComponent(NewProjectAudioProcessor& p, double sample_rate, size_t block_size, size_t input_channels) :MainComponent(p) {
+    prepare_to_play(sample_rate, block_size, input_channels);
+  }
   ~MainComponent() override;
 
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, std::function<void()>>>>> menu_items_ = {
+      {
+          "UI Scaling",
+          {
+              {"100%", std::bind(&MainComponent::setScaleFactor, this, 1)},
+              {"150%", std::bind(&MainComponent::setScaleFactor, this, 1.5)},
+              {"200%", std::bind(&MainComponent::setScaleFactor, this, 2)},
+              {"250%", std::bind(&MainComponent::setScaleFactor, this, 2.5)},
+          }
+      },
       {
           "Debug",
           {
@@ -245,23 +257,8 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
     }
   }
 
-  void enqueue(std::function<void()> action) {
-    std::unique_lock<std::mutex> _(queue_lock);
-    queued_actions.emplace_back(std::move(action));
-  }
-  bool dequeue() {
-    std::function<void()> action;
-    {
-      std::unique_lock<std::mutex> _(queue_lock);
-      if (queued_actions.empty()) {
-        return false;
-      }
-      action = std::move(queued_actions.front());
-      queued_actions.pop_front();
-    }
-    action();
-    return true;
-  }
+  void enqueue(std::function<void()> action);
+  bool dequeue();
 
  private:
   MainInfo main_info_;

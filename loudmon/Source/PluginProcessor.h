@@ -42,7 +42,6 @@ class NewProjectAudioProcessor  : public AudioProcessor {
 
  private:
   std::vector<std::vector<float>> loudness_buffer;
-  Component::SafePointer<MainComponent> editor;
   std::chrono::high_resolution_clock::time_point last_process_time;
   size_t late_block_count_ = 0;
 

@@ -10,8 +10,11 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
       main_info_(std::bind(&MainComponent::repaint_safe, this)),
       menu_bar_(this) {
 
-  Desktop::getInstance().setGlobalScaleFactor(2);
-
+  if (juce::SystemStats::getOperatingSystemType() == juce::SystemStats::OperatingSystemType::Linux) {
+    Desktop::getInstance().setGlobalScaleFactor(2);
+  } else {
+    Desktop::getInstance().setGlobalScaleFactor(1);
+  }
   setResizable(true, true);
   setSize(400, 800);
   setResizeLimits(300, 300, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
@@ -23,7 +26,7 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
   info_text.setText("Info", NotificationType::dontSendNotification);
   info_text.setColour(Label::textColourId, Colours::orange);
   info_text.setJustificationType (Justification::left);
-//  info_text.setBounds(10, 10, getWidth() - 20, 400 - 20);
+  info_text.setBounds(10, 10, getWidth() - 20, 400 - 20);
 
   addAndMakeVisible(oscilloscope_);
 
@@ -35,13 +38,17 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
 }
 
 MainComponent::~MainComponent() {
-  debug_window.deleteAndZero();
-  debug_window = nullptr;
+  if (debug_window) {
+    debug_window.deleteAndZero();
+    debug_window = nullptr;
+  }
 }
 
 void MainComponent::toggle_debug_window() {
   debug_window_visible_ = !debug_window_visible_;
-  debug_window->setVisible(debug_window_visible_ && isVisible());
+  if (debug_window) {
+    debug_window->setVisible(debug_window_visible_ && isVisible());
+  }
 }
 
 void MainComponent::visibilityChanged() {
@@ -56,4 +63,22 @@ void MainComponent::paint(Graphics& g) {
   last_paint_time = now;
 
   g.fillAll(Colour::fromRGB(0, 0, 0));
+}
+
+void MainComponent::enqueue(std::function<void()> action) {
+  std::unique_lock<std::mutex> _(queue_lock);
+  queued_actions.emplace_back(std::move(action));
+}
+bool MainComponent::dequeue() {
+  std::function<void()> action;
+  {
+    std::unique_lock<std::mutex> _(queue_lock);
+    if (queued_actions.empty()) {
+      return false;
+    }
+    action = std::move(queued_actions.front());
+    queued_actions.pop_front();
+  }
+  action();
+  return true;
 }

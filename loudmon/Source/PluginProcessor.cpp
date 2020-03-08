@@ -16,7 +16,6 @@ NewProjectAudioProcessor::NewProjectAudioProcessor()
                        )
 #endif
 {
-    editor = new MainComponent(*this);
 }
 
 NewProjectAudioProcessor::~NewProjectAudioProcessor() {
@@ -89,10 +88,13 @@ IIRCoefficients operator+(const IIRCoefficients &lhs, const IIRCoefficients &rhs
 }
 //==============================================================================
 void NewProjectAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) {
+  auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
   auto input_channels = getTotalNumInputChannels();
   auto output_channels = getTotalNumOutputChannels();
   assert(output_channels >= input_channels);
-  editor->prepare_to_play(sampleRate, samplesPerBlock, input_channels);
+  if (editor) {
+    editor->prepare_to_play(sampleRate, samplesPerBlock, input_channels);
+  }
 
   low_filter.resize(input_channels);
   mid_filter.resize(input_channels);
@@ -161,7 +163,12 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
   auto input0 = getBusBuffer(buffer, true, 0);
 
   /* RMS calculation. Calculate for the whole block */
+  auto editor = dynamic_cast<MainComponent*>(getActiveEditor());
+  if (!editor) {
+    return;
+  }
   std::vector<float> rms;
+  rms.reserve(totalNumInputChannels);
   for (int channel = 0; channel < totalNumInputChannels; ++channel) {
     rms.push_back(calculate_rms(input0.getArrayOfReadPointers()[channel], getBlockSize()));
   }
@@ -228,7 +235,8 @@ bool NewProjectAudioProcessor::hasEditor() const {
 }
 
 AudioProcessorEditor* NewProjectAudioProcessor::createEditor() {
-    return editor;
+  auto ret = new MainComponent(*this, getSampleRate(), getBlockSize(), getTotalNumInputChannels());
+  return ret;
 }
 
 //==============================================================================
