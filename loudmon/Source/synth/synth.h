@@ -50,7 +50,7 @@ class SynthControl : public juce::Component {
 
   // These paramaters must be place after components_
  public:
-  SynthParameter<float> amp = SynthParameter<float>(this, "Amp(dB)", -50, 10, 0.1, -15, false);
+  SynthParameter<float> amp = SynthParameter<float>(this, "Amp(dB)", -50, 10, 0.1f, -15, false);
   SynthParameter<int> harmonics = SynthParameter<int>(this, "Harmonics", 1, 10, 1, 1, false);
   SynthParameter<int> harmonic_diff = SynthParameter<int>(this, "Harmonic Diff", 1, 10, 1, 1, false);
   SynthParameter<int> freq_width = SynthParameter<int>(this, "Frequency Width", 1, 10, 1, 5, false);

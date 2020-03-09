@@ -63,13 +63,13 @@ int NewProjectAudioProcessor::getCurrentProgram() {
     return 0;
 }
 
-void NewProjectAudioProcessor::setCurrentProgram (int index) { }
+void NewProjectAudioProcessor::setCurrentProgram (int) { }
 
-const String NewProjectAudioProcessor::getProgramName (int index) {
+const String NewProjectAudioProcessor::getProgramName (int) {
     return {};
 }
 
-void NewProjectAudioProcessor::changeProgramName (int index, const String& newName) { }
+void NewProjectAudioProcessor::changeProgramName (int, const String&) { }
 
 IIRCoefficients operator+(const IIRCoefficients &lhs, const IIRCoefficients &rhs) {
   IIRCoefficients ret;
@@ -167,7 +167,7 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
     }
   } else {
     if (synthesiser_.getSampleRate() > 0) {
-      AudioBuffer<float> synth_buffer(synth_channels, getBlockSize());
+      AudioBuffer<float> synth_buffer(static_cast<int>(synth_channels), getBlockSize());
       synthesiser_.renderNextBlock(synth_buffer, midiMessages, 0, getBlockSize());
       for (int i = 0; i < buffer.getNumChannels(); i++) {
         FloatVectorOperations::add(buffer.getWritePointer(i), synth_buffer.getReadPointer(i), buffer.getNumSamples());
@@ -233,7 +233,7 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
 
   auto t1 = std::chrono::high_resolution_clock::now();
   std::chrono::duration<float> total_latency = t1 - t0;
-  auto max_latency_expected = float(getBlockSize()) / getSampleRate();
+  auto max_latency_expected = float(getBlockSize() / getSampleRate());
   if (total_latency.count() > max_latency_expected) {
     late_block_count_++;
   }
@@ -255,10 +255,10 @@ AudioProcessorEditor* NewProjectAudioProcessor::createEditor() {
 }
 
 //==============================================================================
-void NewProjectAudioProcessor::getStateInformation (MemoryBlock& destData) {
+void NewProjectAudioProcessor::getStateInformation (MemoryBlock&) {
 }
 
-void NewProjectAudioProcessor::setStateInformation (const void* data, int sizeInBytes) {
+void NewProjectAudioProcessor::setStateInformation (const void*, int) {
 }
 
 AudioProcessor* JUCE_CALLTYPE createPluginFilter() {

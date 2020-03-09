@@ -41,19 +41,19 @@ using PeakFilter = dsp::ProcessorChain<dsp::IIR::Filter<T>, dsp::IIR::Filter<T>>
 
 class FilterTransferFunctionComponent :public juce::Component {
  public:
-  FilterTransferFunctionComponent(double sample_rate, size_t input_channels, size_t fft_order = 10);
+  FilterTransferFunctionComponent(float sample_rate, size_t input_channels, size_t fft_order = 10);
   void paint(Graphics &g) override;
   void paint_transfer_function(Graphics &g, float left, float top, float width, float height);
   void resized() override {
     auto area = getLocalBounds();
-    auto slider_area = area.removeFromTop(slider_height_);
-    frequency_slider_.setBounds(slider_area.removeFromLeft(area.getWidth()/slider_count_));
-    quality_slider_.setBounds(slider_area.removeFromLeft(area.getWidth()/slider_count_));
+    auto slider_area = area.removeFromTop(static_cast<int>(slider_height_));
+    frequency_slider_.setBounds(slider_area.removeFromLeft(static_cast<int>(area.getWidth()/slider_count_)));
+    quality_slider_.setBounds(slider_area.removeFromLeft(static_cast<int>(area.getWidth()/slider_count_)));
     plot_.setBounds(area);
   }
 
   void filter_parameter_changed() {
-    set_parameters(frequency_slider_.getValue(), quality_slider_.getValue());
+    set_parameters(static_cast<float>(frequency_slider_.getValue()), static_cast<float>(quality_slider_.getValue()));
   }
 
   template <typename Context>
@@ -63,12 +63,12 @@ class FilterTransferFunctionComponent :public juce::Component {
   }
 
  private:
-  void set_parameters(double frequency, float quality);
+  void set_parameters(float frequency, float quality);
 
  private:
-  double sample_rate_;
+  float sample_rate_;
   size_t input_channels_;
-  double frequency_, quality_;
+  float frequency_ = sqrt(20 * 20000.0f), quality_ = 1.0f;
   size_t fft_order_, fft_size_;
 
   LogSlider frequency_slider_, quality_slider_;

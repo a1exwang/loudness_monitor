@@ -6,18 +6,18 @@
 void SynthControl::resized() {
   auto area = getLocalBounds();
   size_t columns = 1;
-  size_t rows = static_cast<size_t>(area.getHeight() / 30.0);
+  size_t rows = static_cast<size_t>(area.getHeight() / 30.0f);
   size_t height = area.getHeight();
   size_t width = area.getWidth();
 
   auto it = components_.begin();
   for (size_t i = 0; i < columns; i++) {
-    auto current_column = area.removeFromLeft(width / columns);
+    auto current_column = area.removeFromLeft(static_cast<int>((float)width / columns));
     for (int j = 0; j < rows; j++) {
       if (it == components_.end()) {
         break;
       }
-      (*it)->setBounds(current_column.removeFromTop((double)height / rows));
+      (*it)->setBounds(current_column.removeFromTop(static_cast<int>((float)height / rows)));
       it++;
     }
   }
@@ -51,7 +51,7 @@ void MPESimpleVoice::renderNextBlock(AudioBuffer<float> &output_buffer, int star
       float x = 0;
       for (int harm = 0; harm < harmonics; harm++) {
         auto f = frequency * (harm * harmonic_diff + 1);
-        float nearest_df = 0.001*f;
+        float nearest_df = 0.001f*f;
         for (int j = -freq_width; j <= freq_width; j++) {
           auto df = j*nearest_df;
           x += nearest_df/(abs(df)+nearest_df) * sin(2 * juce::MathConstants<float>::pi * (f+df) * (sample_pos_+i) / static_cast<float>(getSampleRate()));
@@ -75,7 +75,7 @@ void MPESimpleVoice::noteStarted() {
   jassert (currentlyPlayingNote.keyState == MPENote::keyDown
                || currentlyPlayingNote.keyState == MPENote::keyDownAndSustained);
 
-  frequency = currentlyPlayingNote.getFrequencyInHertz();
+  frequency = static_cast<float>(currentlyPlayingNote.getFrequencyInHertz());
   sample_pos_ = 0;
   adsr_.noteOn();
 }
@@ -90,5 +90,5 @@ void MPESimpleVoice::noteStopped(bool allowTailOff) {
 void MPESimpleVoice::notePressureChanged() {
 }
 void MPESimpleVoice::notePitchbendChanged() {
-  frequency = currentlyPlayingNote.getFrequencyInHertz();
+  frequency = static_cast<float>(currentlyPlayingNote.getFrequencyInHertz());
 }

@@ -92,7 +92,7 @@ void MainComponent::resize_children() {
   auto area = getLocalBounds();
   menu_bar_.setBounds(area.removeFromTop (LookAndFeel::getDefaultLookAndFeel().getDefaultMenuBarHeight()));
   keyboard_.setBounds(area.removeFromBottom(50));
-  auto control_area = area.removeFromLeft(area.getWidth()*(1.0/3.0));
+  auto control_area = area.removeFromLeft(static_cast<int>(area.getWidth()*(1.0f/3.0f)));
   synth_control_.setBounds(control_area);
   auto total_height = area.getHeight();
   info_text.setBounds(area.removeFromTop(total_height/4));

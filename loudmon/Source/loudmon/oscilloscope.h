@@ -22,8 +22,8 @@ class OscilloscopeComponent :public juce::Component {
   }
 
   void on_slider_change() {
-    auto x_value = x_slider_.getValue();
-    auto y_value = y_slider_.getValue();
+    auto x_value = static_cast<float>(x_slider_.getValue());
+    auto y_value = static_cast<float>(y_slider_.getValue());
     plot_.set_value_range(0, x_value, -y_value, y_value, false, false);
   }
 
@@ -32,10 +32,10 @@ class OscilloscopeComponent :public juce::Component {
     values_.resize(size);
     std::copy(ptr, ptr+size, values_.begin());
     plot_.clear();
-    std::vector<std::tuple<double, double>> values;
+    std::vector<std::tuple<float, float>> values;
     values.reserve(values_.size());
     for (size_t i = 0; i < values_.size(); i++) {
-      values.emplace_back(i, values_[i]);
+      values.emplace_back(static_cast<float>(i), values_[i]);
     }
     plot_.add_new_values("osc", values);
   }

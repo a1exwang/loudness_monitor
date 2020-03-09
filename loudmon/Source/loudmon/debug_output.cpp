@@ -11,7 +11,11 @@ void log(int level, const std::string &s) {
     auto point = std::chrono::system_clock::now();
     std::time_t now_c = std::chrono::system_clock::to_time_t(point);
     std::strftime(buf, 21, "%Y-%m-%dT%H:%M:%S.", std::localtime(&now_c));
+#ifdef JUCE_MSVC
+    sprintf(buf + 20, "%09lld", point.time_since_epoch().count() % 1000000000);
+#else
     sprintf(buf + 20, "%09ld", point.time_since_epoch().count() % 1000000000);
+#endif
     ss << "LOG(" << std::setw(2) << std::setfill('0') << level << ") " << time_str << " " << s;
     the_main_logger->print_line(ss.str());
   }

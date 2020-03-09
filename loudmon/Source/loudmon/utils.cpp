@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <sstream>
 
-std::string compact_value_text(float f) {
+std::string compact_value_text(double f) {
   std::stringstream ss;
   if (std::abs(f) < 1000) {
     ss << std::fixed << std::setprecision(1) << f;

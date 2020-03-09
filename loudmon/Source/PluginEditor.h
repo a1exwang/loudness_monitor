@@ -101,13 +101,13 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
       {
           "UI Scaling",
           {
-              {"50%", std::bind(&MainComponent::setScaleFactor, this, 0.5)},
-              {"100%", std::bind(&MainComponent::setScaleFactor, this, 1)},
-              {"125%", std::bind(&MainComponent::setScaleFactor, this, 1.25)},
-              {"150%", std::bind(&MainComponent::setScaleFactor, this, 1.5)},
-              {"175%", std::bind(&MainComponent::setScaleFactor, this, 1.75)},
-              {"200%", std::bind(&MainComponent::setScaleFactor, this, 2)},
-              {"250%", std::bind(&MainComponent::setScaleFactor, this, 2.5)},
+              {"50%", std::bind(&MainComponent::setScaleFactor, this, 0.5f)},
+              {"100%", std::bind(&MainComponent::setScaleFactor, this, 1.0f)},
+              {"125%", std::bind(&MainComponent::setScaleFactor, this, 1.25f)},
+              {"150%", std::bind(&MainComponent::setScaleFactor, this, 1.5f)},
+              {"175%", std::bind(&MainComponent::setScaleFactor, this, 1.75f)},
+              {"200%", std::bind(&MainComponent::setScaleFactor, this, 2.0f)},
+              {"250%", std::bind(&MainComponent::setScaleFactor, this, 2.5f)},
           }
       },
       {
@@ -134,9 +134,10 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
 
   PopupMenu getMenuForIndex(int topLevelMenuIndex, const String &menuName) override {
     PopupMenu menu;
+    (void)menuName;
     // An ID of 0 is used as a return value to indicate that the user
     // didn't pick anything, so you shouldn't use it as the ID for an item..
-    size_t i = 1;
+    int i = 1;
     for (auto &item : std::get<1>(menu_items_[topLevelMenuIndex])) {
       auto& [sub_menu_name, action] = item;
       juce::PopupMenu::Item popup_item(sub_menu_name);
@@ -166,7 +167,10 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
 
   void toggle_debug_window();
   void toggle_main_filter() {
-    main_filter_enabled.fetch_xor(1);
+    auto enabled = !main_filter_enabled.fetch_xor(1);
+    if (filter) {
+      filter->setVisible(enabled);
+    }
   }
 
   /* Component callbacks, UI thread */
@@ -213,7 +217,7 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
       if (filter) {
         removeChildComponent(filter.get());
       }
-      filter = std::make_unique<FilterTransferFunctionComponent>(sample_rate, input_channels);
+      filter = std::make_unique<FilterTransferFunctionComponent>(static_cast<float>(sample_rate), input_channels);
       addAndMakeVisible(*filter);
       resize_children();
     });
@@ -249,7 +253,7 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   MidiBuffer get_keyboard_midi_buffer(size_t sample_count) {
     MidiBuffer ret;
     // this is thread safe, so we don't need a lock
-    keyboard_state_.processNextMidiBuffer(ret, 0, sample_count, true);
+    keyboard_state_.processNextMidiBuffer(ret, 0, static_cast<int>(sample_count), true);
     return ret;
   }
 

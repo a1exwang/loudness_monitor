@@ -40,7 +40,7 @@ class LogSlider : public juce::Component {
   void resize_children() {
     auto area = getLocalBounds();
     if (has_name_) {
-      label_.setBounds(area.removeFromTop(std::min(label_min_height, label_height_ratio*area.getHeight())));
+      label_.setBounds(area.removeFromTop(static_cast<int>(std::min(label_min_height, label_height_ratio*area.getHeight()))));
     }
     slider_.setBounds(area);
   }
@@ -70,7 +70,7 @@ class LogSlider : public juce::Component {
   std::string name_;
   juce::Label label_;
   LogSliderInternal slider_;
-  double label_height_ratio = 0.3;
-  double label_min_height = 30;
+  float label_height_ratio = 0.3f;
+  float label_min_height = 30.0f;
 };
 

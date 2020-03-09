@@ -3,7 +3,7 @@
 #include <string>
 #include <atomic>
 
-std::string compact_value_text(float f);
+std::string compact_value_text(double f);
 
 class spinlock {
  public:
