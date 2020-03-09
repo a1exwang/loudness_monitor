@@ -86,7 +86,7 @@ void NewProjectAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
   assert(input_channels == 0 || input_channels == 2);
   assert(output_channels == 2);
   if (editor) {
-    editor->prepare_to_play(sampleRate, samplesPerBlock, input_channels);
+    editor->prepare_to_play(sampleRate, samplesPerBlock, synth_channels);
   }
 
   synthesiser_.setCurrentPlaybackSampleRate(sampleRate);
@@ -249,7 +249,7 @@ bool NewProjectAudioProcessor::hasEditor() const {
 }
 
 AudioProcessorEditor* NewProjectAudioProcessor::createEditor() {
-  auto ret = new MainComponent(*this, getSampleRate(), getBlockSize(), getTotalNumInputChannels());
+  auto ret = new MainComponent(*this, getSampleRate(), getBlockSize(), synth_channels);
 
   return ret;
 }

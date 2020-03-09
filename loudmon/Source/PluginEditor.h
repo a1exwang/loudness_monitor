@@ -170,6 +170,7 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
     auto enabled = !main_filter_enabled.fetch_xor(1);
     if (filter) {
       filter->setVisible(enabled);
+      resize_children();
     }
   }
 
@@ -214,11 +215,10 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
       main_info_.set_samples_per_block(samples_per_block);
       main_info_.set_input_channels(input_channels);
 
-      if (filter) {
-        removeChildComponent(filter.get());
-      }
+      // automatically delete old filter and replace it with the new one
       filter = std::make_unique<FilterTransferFunctionComponent>(static_cast<float>(sample_rate), input_channels);
-      addAndMakeVisible(*filter);
+      addChildComponent(*filter);
+      filter->setVisible(main_filter_enabled);
       resize_children();
     });
   }

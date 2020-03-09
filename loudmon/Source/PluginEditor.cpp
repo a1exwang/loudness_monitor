@@ -40,6 +40,7 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
   debug_window->setResizable(true, true);
 
   startTimerHz(30);
+  resize_children();
 }
 
 MainComponent::~MainComponent() {
@@ -98,7 +99,7 @@ void MainComponent::resize_children() {
   info_text.setBounds(area.removeFromTop(total_height/4));
   oscilloscope_.setBounds(area.removeFromTop(total_height/4));
 
-  if (filter) {
+  if (filter && main_filter_enabled) {
     filter->setBounds(area);
   }
 }
