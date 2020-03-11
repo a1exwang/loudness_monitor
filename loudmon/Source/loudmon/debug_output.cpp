@@ -21,7 +21,7 @@ void log(int level, const std::string &s) {
   }
 }
 
-DebugOutputComponent::DebugOutputComponent() :mono_font("Noto Sans Mono", 20, Font::plain) {
+DebugOutputComponent::DebugOutputComponent() :mono_font(juce::Font::getDefaultMonospacedFontName(), 20, Font::plain) {
   if (the_main_logger == nullptr) {
     the_main_logger = this;
   }

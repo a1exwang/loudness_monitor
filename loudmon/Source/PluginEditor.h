@@ -58,22 +58,8 @@ class MainInfo {
     display_values_[key] = std::move(value);
   }
 
-  std::string to_string() const {
-    std::stringstream ss;
-    ss << "FPS: " << fps_ << std::endl
-       << "Latency(out/in/max/late): " << std::fixed << std::setprecision(2) << std::setfill('0')
-       << process_block_interval_*1000 << "/" << latency_ms_ << "/" << latency_max_expected_ << "/" << late_block_count_ << std::endl
-       << "Sample Rate: " << sample_rate_ << ", Samples per Block: " << samples_per_block_ << ", Input channels: " << input_channels_ << std::endl
-       << "Input RMS: ";
-    for (float value : input_rms_) {
-      ss << std::fixed << std::setprecision(2) << std::setfill('0') << value << "dB ";
-    }
-    ss << std::endl;
-    for (auto &key : display_value_keys_in_order_) {
-      ss << key << ": " << display_values_.at(key) << std::endl;
-    }
-    return ss.str();
-  }
+  [[nodiscard]]
+  std::string to_string() const;
  private:
   friend class MainComponent;
   double sample_rate_ = 44100;
@@ -82,7 +68,7 @@ class MainInfo {
   float fps_ = 0;
   std::vector<float> input_rms_;
   float latency_ms_ = 0, latency_max_expected_ = 0, process_block_interval_ = 0;
-  size_t late_block_count_;
+  size_t late_block_count_ = 0;
 
   std::map<std::string, std::string> display_values_;
   std::list<std::string> display_value_keys_in_order_;
@@ -97,68 +83,9 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   }
   ~MainComponent() override;
 
-  std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, std::function<void()>>>>> menu_items_ = {
-      {
-          "UI Scaling",
-          {
-              {"50%", std::bind(&MainComponent::setScaleFactor, this, 0.5f)},
-              {"100%", std::bind(&MainComponent::setScaleFactor, this, 1.0f)},
-              {"125%", std::bind(&MainComponent::setScaleFactor, this, 1.25f)},
-              {"150%", std::bind(&MainComponent::setScaleFactor, this, 1.5f)},
-              {"175%", std::bind(&MainComponent::setScaleFactor, this, 1.75f)},
-              {"200%", std::bind(&MainComponent::setScaleFactor, this, 2.0f)},
-              {"250%", std::bind(&MainComponent::setScaleFactor, this, 2.5f)},
-          }
-      },
-      {
-          "Debug",
-          {
-              {"Toggle Debug Window", std::bind(&MainComponent::toggle_debug_window, this)}
-          }
-      },
-      {
-          "Filter",
-          {
-              {"Toggle Main Filter", std::bind(&MainComponent::toggle_main_filter, this)}
-          }
-      }
-  };
-
-  StringArray getMenuBarNames() override {
-    StringArray names;
-    for (auto &[name, _] : menu_items_) {
-      names.add(name);
-    }
-    return names;
-  }
-
-  PopupMenu getMenuForIndex(int topLevelMenuIndex, const String &menuName) override {
-    PopupMenu menu;
-    (void)menuName;
-    // An ID of 0 is used as a return value to indicate that the user
-    // didn't pick anything, so you shouldn't use it as the ID for an item..
-    int i = 1;
-    for (auto &item : std::get<1>(menu_items_[topLevelMenuIndex])) {
-      auto& [sub_menu_name, action] = item;
-      juce::PopupMenu::Item popup_item(sub_menu_name);
-      popup_item.setID(i++);
-      menu.addItem(popup_item);
-    }
-    return menu;
-  }
-
-  void menuItemSelected (int menu_item_id, int top_level_menu_index) override {
-    if (top_level_menu_index >= 0 && top_level_menu_index < menu_items_.size()) {
-      auto menu_item = std::get<1>(menu_items_[top_level_menu_index]);
-      auto menu_item_index = menu_item_id-1;
-      if (menu_item_index >= 0 && menu_item_index < menu_item.size()) {
-        auto action = std::get<1>(menu_item[menu_item_index]);
-        if (action) {
-          action();
-        }
-      }
-    }
-  }
+  StringArray getMenuBarNames() override;
+  PopupMenu getMenuForIndex(int topLevelMenuIndex, const String &menuName) override;
+  void menuItemSelected (int menu_item_id, int top_level_menu_index) override;
 
   [[nodiscard]]
   bool is_main_filter_enabled() const {
@@ -166,13 +93,8 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   }
 
   void toggle_debug_window();
-  void toggle_main_filter() {
-    auto enabled = !main_filter_enabled.fetch_xor(1);
-    if (filter) {
-      filter->setVisible(enabled);
-      resize_children();
-    }
-  }
+  void toggle_main_filter();
+  void toggle_oscilloscope();
 
   /* Component callbacks, UI thread */
   void visibilityChanged() override;
@@ -209,19 +131,8 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
       repaint();
     });
   }
-  void prepare_to_play(double sample_rate, size_t samples_per_block, size_t input_channels) {
-    enqueue([this, sample_rate, samples_per_block, input_channels]() {
-      main_info_.set_sample_rate(sample_rate);
-      main_info_.set_samples_per_block(samples_per_block);
-      main_info_.set_input_channels(input_channels);
 
-      // automatically delete old filter and replace it with the new one
-      filter = std::make_unique<FilterTransferFunctionComponent>(static_cast<float>(sample_rate), input_channels);
-      addChildComponent(*filter);
-      filter->setVisible(main_filter_enabled);
-      resize_children();
-    });
-  }
+  void prepare_to_play(double sample_rate, size_t samples_per_block, size_t input_channels);
 
   template <typename Context>
   void filter_process(int channel, Context &context) {
@@ -233,7 +144,9 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   void send_block(AudioBuffer<float> buffer) {
     enqueue([this, buffer{std::move(buffer)}]() {
       buffer_ = buffer;
-      oscilloscope_.set_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
+      if (oscilloscope_enabled_) {
+        oscilloscope_.set_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
+      }
     });
   }
 
@@ -268,12 +181,18 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
 
  private:
   MainInfo main_info_;
+
   juce::MenuBarComponent menu_bar_;
+  std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, std::function<void()>>>>> menu_items_;
 
   Label info_text;
+
+  std::atomic<int> oscilloscope_enabled_ = false;
   OscilloscopeComponent oscilloscope_;
+
   std::list<std::function<void()>> queued_actions;
   std::mutex queue_lock;
+
   Component::SafePointer<DebugOutputWindow> debug_window;
   bool debug_window_visible_ = false;
 

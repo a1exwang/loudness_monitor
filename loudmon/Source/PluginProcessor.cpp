@@ -15,6 +15,8 @@ NewProjectAudioProcessor::NewProjectAudioProcessor()
 #endif
 {
 
+  synthesiser_.enableLegacyMode(24);
+  synthesiser_.setVoiceStealingEnabled(false);
   // Start with the max number of voices
   for (auto i = 0; i != 16; ++i) {
     synthesiser_.addVoice(new MPESimpleVoice([this]() -> SynthControl* {
@@ -249,9 +251,7 @@ bool NewProjectAudioProcessor::hasEditor() const {
 }
 
 AudioProcessorEditor* NewProjectAudioProcessor::createEditor() {
-  auto ret = new MainComponent(*this, getSampleRate(), getBlockSize(), synth_channels);
-
-  return ret;
+  return new MainComponent(*this, getSampleRate(), getBlockSize(), synth_channels);
 }
 
 //==============================================================================
