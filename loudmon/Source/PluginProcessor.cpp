@@ -230,7 +230,7 @@ void NewProjectAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuff
     editor->set_process_block_interval(callback_interval);
     last_process_time = t0;
 
-    editor->send_block(buffer);
+    editor->send_block(static_cast<float>(getSampleRate()), buffer);
   }
 
   auto t1 = std::chrono::high_resolution_clock::now();

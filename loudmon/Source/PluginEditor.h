@@ -141,14 +141,8 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
     }
   }
 
-  void send_block(AudioBuffer<float> buffer) {
-    enqueue([this, buffer{std::move(buffer)}]() {
-      buffer_ = buffer;
-      if (oscilloscope_enabled_) {
-        oscilloscope_.set_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
-      }
-    });
-  }
+  void calculate_spectrum();
+  void send_block(float sample_rate, AudioBuffer<float> buffer);
 
   void add_display_value(const std::string& key, std::string value) {
     enqueue([this, key, value{std::move(value)}]() {
@@ -187,8 +181,9 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
 
   Label info_text;
 
-  std::atomic<int> oscilloscope_enabled_ = false;
-  OscilloscopeComponent oscilloscope_;
+  std::atomic<int> oscilloscope_enabled_ = true;
+  OscilloscopeComponent oscilloscope_waveform_;
+  PlotComponent oscilloscope_spectrum_;
 
   std::list<std::function<void()>> queued_actions;
   std::mutex queue_lock;
@@ -199,7 +194,9 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   std::atomic<int> main_filter_enabled = false;
   std::unique_ptr<FilterTransferFunctionComponent> filter;
   std::chrono::high_resolution_clock::time_point last_paint_time;
+  dsp::FFT fft_ = dsp::FFT(11);
   AudioBuffer<float> buffer_;
+  AudioBuffer<float> spectrum_buffer_ = AudioBuffer<float>(1, 1ul<<12);
 
   juce::MidiKeyboardState keyboard_state_;
   juce::MidiKeyboardComponent keyboard_;

@@ -60,7 +60,7 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
       main_info_(std::bind(&MainComponent::repaint_safe, this)),
       menu_items_(get_menu_items(this)),
       menu_bar_(this),
-      oscilloscope_(256),
+      oscilloscope_waveform_(256),
       keyboard_(keyboard_state_, juce::MidiKeyboardComponent::Orientation::horizontalKeyboard) {
 
   if (juce::SystemStats::getOperatingSystemType() == juce::SystemStats::OperatingSystemType::Linux) {
@@ -84,8 +84,11 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
   info_text.setJustificationType (Justification::left);
   info_text.setBounds(10, 10, getWidth() - 20, 400 - 20);
 
-  addChildComponent(oscilloscope_);
-  oscilloscope_.setVisible(oscilloscope_enabled_);
+  addChildComponent(oscilloscope_waveform_);
+  addChildComponent(oscilloscope_spectrum_);
+  oscilloscope_waveform_.setVisible(oscilloscope_enabled_);
+  oscilloscope_spectrum_.setVisible(oscilloscope_enabled_);
+  oscilloscope_spectrum_.set_value_range(20, 20000, -50, 10, true, false);
 
   debug_window = new DebugOutputWindow("Debug Window", Colour(0), true);
   debug_window->setSize(1024, 400);
@@ -153,7 +156,8 @@ void MainComponent::toggle_main_filter() {
 }
 void MainComponent::toggle_oscilloscope() {
   auto enabled = !oscilloscope_enabled_.fetch_xor(1);
-  oscilloscope_.setVisible(enabled);
+  oscilloscope_waveform_.setVisible(enabled);
+  oscilloscope_spectrum_.setVisible(enabled);
   resize_children();
 }
 
@@ -216,10 +220,46 @@ void MainComponent::resize_children() {
   info_text.setBounds(area.removeFromTop(total_height/4));
 
   if (oscilloscope_enabled_) {
-    oscilloscope_.setBounds(area.removeFromTop(total_height/4));
+    oscilloscope_waveform_.setBounds(area.removeFromTop(total_height/8*3));
+    oscilloscope_spectrum_.setBounds(area.removeFromTop(total_height/8*3));
   }
 
   if (filter && main_filter_enabled) {
     filter->setBounds(area);
   }
+}
+
+void MainComponent::send_block(float sample_rate, AudioBuffer<float> buffer) {
+  enqueue([this, sample_rate, buffer{std::move(buffer)}]() {
+    buffer_ = buffer;
+    if (oscilloscope_enabled_) {
+      oscilloscope_waveform_.set_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
+
+      calculate_spectrum();
+
+      std::vector<std::tuple<float, float>> values(spectrum_buffer_.getNumSamples()/2+1);
+      auto buf = spectrum_buffer_.getReadPointer(0);
+      for (int i = 0; i < values.size(); i++) {
+        values[i] = {float(i)/spectrum_buffer_.getNumSamples()*sample_rate, 10*log10(buf[i])};
+        if (buf[i] > 0) {
+          log(10, std::to_string(std::get<0>(values[i])) + " " + std::to_string(std::get<1>(values[i])));
+        }
+      }
+
+      oscilloscope_spectrum_.clear();
+      oscilloscope_spectrum_.add_new_values("spectrum", std::move(values));
+      oscilloscope_spectrum_.repaint();
+    }
+  });
+}
+
+void MainComponent::calculate_spectrum() {
+  LagrangeInterpolator interpolator;
+  double ratio = (double)buffer_.getNumSamples() / spectrum_buffer_.getNumSamples();
+  interpolator.process(
+      ratio,
+      buffer_.getReadPointer(0),
+      spectrum_buffer_.getWritePointer(0),
+      spectrum_buffer_.getNumSamples());
+//  fft_.performFrequencyOnlyForwardTransform(spectrum_buffer_.getWritePointer(0));
 }

@@ -5,6 +5,7 @@
 #include "utils.h"
 #include <iterator>
 #include <list>
+#include <utility>
 
 
 // linear normalize to [0, 1)
@@ -123,44 +124,14 @@ class PlotComponent :public juce::Component {
     };
   };
  private:
+
   void paint_coordinates(Graphics &g);
-  void plot_lines(Graphics &g) {
-    g.saveState();
-    for (auto &[name, line] : values_) {
-      if (!line.empty()) {
-        g.setColour(juce::Colour(line_colors_[name]));
-        float last_x, last_y;
-        std::tie(last_x, last_y) = line.front();
-        for (size_t i = 1; i < line.size(); i++) {
-          float x, y;
-          std::tie(x, y) = line[i];
-          auto [x1, y1] = map_point(last_x, last_y);
-          auto [x2, y2] = map_point(x, y);
-          if (x1 >= app_x_min && x1 < app_x_max && x1 >= app_x_min && x1 < app_x_max &&
-              y1 >= app_y_min && y1 < app_y_max && y2 >= app_y_min && y2 < app_y_max) {
-            g.drawLine(x1, y1, x2, y2);
-          }
-          std::tie(last_x, last_y) = line[i];
-        }
-      }
-    }
-    g.restoreState();
-  }
-  void paint_legends(Graphics &g) {
-    auto start_y = app_y_min + (app_y_max-app_y_min)*0.1f;
-    size_t i = 0;
-    g.saveState();
-    for (auto &[name, color] : line_colors_) {
-      g.setColour(juce::Colour(color));
-      g.drawLine(app_x_min + (app_x_max-app_x_min)*0.85f,
-                 start_y + i * legend_height,
-                 app_x_min + (app_x_max-app_x_min)*0.9f,
-                 start_y + i * legend_height);
-      g.setFont(legend_height);
-      g.drawSingleLineText(name, static_cast<int>(app_x_min + (app_x_max-app_x_min)*0.91f), static_cast<int>(start_y + i * legend_height));
-    }
-    g.restoreState();
-  }
+  const int ClipPointResultAllOut = -2;
+  const int ClipPointResultAllIn = -1;
+  std::tuple<std::tuple<float, float>, int> get_clip_point(float x1, float y1, float x2, float y2) const;
+
+  void plot_lines(Graphics &g);
+  void paint_legends(Graphics &g);
 
  private:
   float x_min_ = 1, x_max_ = 10, y_min_ = 0, y_max_ = 10;

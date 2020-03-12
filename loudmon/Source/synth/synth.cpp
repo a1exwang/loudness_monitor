@@ -15,8 +15,12 @@ SynthControl::SynthControl(float sample_rate) :sample_rate_(sample_rate) {
       update_waveform();
     }
   };
+  waveform_select_.setSelectedItemIndex(0, dontSendNotification);
+  waveform_select_.onChange();
+
   oscilloscope_.set_yx_display_ratio(2 / juce::MathConstants<float>::twoPi);
   addAndMakeVisible(oscilloscope_);
+
 
   components_.push_back(&waveform_select_);
   for (auto &c : components_) {
@@ -60,9 +64,6 @@ MPESimpleVoice::MPESimpleVoice(std::function<SynthControl* ()> get_control) :get
 }
 
 void MPESimpleVoice::renderNextBlock(AudioBuffer<float> &output_buffer, int startSample, int num_sample) {
-  std::stringstream ss;
-  ss << "SimpleVoice::renderNextBlock " << this;
-  log(10, ss.str());
   auto control = get_control_();
   if (!control) {
     return;
@@ -90,8 +91,8 @@ void MPESimpleVoice::noteStarted() {
   sample_pos_ = 0;
   adsr_.noteOn();
   auto control = get_control_();
-  if (control) {
-    waveform_voice_ = control->waveform().get_voice();
+  if (control && control->waveform()) {
+    waveform_voice_ = control->waveform()->get_voice();
   }
 }
 void MPESimpleVoice::noteStopped(bool allowTailOff) {
@@ -110,29 +111,13 @@ void MPESimpleVoice::notePitchbendChanged() {
 
 void MPESimpleVoice::render_note(SynthControl *control, AudioBuffer<float> &output_buffer) {
   auto num_samples = output_buffer.getNumSamples();
-  auto &waveform = control->waveform();
-  auto harmonics = control->harmonics.value();
-  auto harmonic_diff = control->harmonic_diff.value();
-  auto freq_width = control->freq_width.value();
   auto amp = pow(10.0f, control->amp.value()/10.0f);
 
-  waveform_voice_->fill_next_samples(frequency, output_buffer.getWritePointer(0), num_samples);
-  juce::FloatVectorOperations::multiply(output_buffer.getWritePointer(0), amp, num_samples);
-
-  for (int channel = 1; channel < output_buffer.getNumChannels(); channel++) {
-//    auto buf = output_buffer.getWritePointer(channel);
-//    for (int i = 0; i < num_samples; i++) {
-//      float x = 0;
-//      for (int harm = 0; harm < harmonics; harm++) {
-//        auto f = frequency * (harm * harmonic_diff + 1);
-//        float nearest_df = 0.001f*f;
-//        for (int j = -freq_width; j <= freq_width; j++) {
-//          auto df = j*nearest_df;
-//          x += nearest_df/(abs(df)+nearest_df) * sin(2 * juce::MathConstants<float>::pi * (f+df) * (sample_pos_+i) / static_cast<float>(getSampleRate()));
-//        }
-//      }
-//      buf[i] += amp * x / harmonics;
-//    }
-    output_buffer.copyFrom(channel, 0, output_buffer, 0, 0, num_samples);
+  if (waveform_voice_) {
+    waveform_voice_->fill_next_samples(frequency, output_buffer.getWritePointer(0), num_samples);
+    juce::FloatVectorOperations::multiply(output_buffer.getWritePointer(0), amp, num_samples);
+    for (int channel = 1; channel < output_buffer.getNumChannels(); channel++) {
+      output_buffer.copyFrom(channel, 0, output_buffer, 0, 0, num_samples);
+    }
   }
 }

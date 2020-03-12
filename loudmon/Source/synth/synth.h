@@ -72,17 +72,19 @@ class SynthControl : public juce::Component {
   void add_component(juce::Component *p);
 
   void update_waveform() {
-    auto [data, size] = waveform().get_original_waveform();
-    oscilloscope_.set_values(data, size);
-    oscilloscope_.set_x_slider_range(0, size);
+    if (waveform()) {
+      auto [data, size] = waveform()->get_original_waveform();
+      oscilloscope_.set_values(data, size);
+      oscilloscope_.set_x_slider_range(0, size);
+    }
   }
 
   void set_sample_rate(float sample_rate) {
     sample_rate_ = sample_rate;
   }
 
-  WaveForm &waveform() {
-    return *waveform_ptr_;
+  const WaveForm *waveform() {
+    return waveform_ptr_.get();
   }
  private:
   // Waveform related

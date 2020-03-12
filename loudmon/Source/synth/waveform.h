@@ -1,6 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
 
+#include <utility>
+
 constexpr float DefaultOriginalFrequency = 440.0f;
 constexpr float DefaultWaveFormSize = 256;
 constexpr size_t DefaultFrequencyPerOctave = 12 * 100;
@@ -8,7 +10,7 @@ constexpr size_t DefaultFrequencyPerOctave = 12 * 100;
 class WaveForm;
 class WaveFormVoice {
  public:
-  WaveFormVoice(std::weak_ptr<const WaveForm> parent) :parent_(parent) { }
+  explicit WaveFormVoice(std::weak_ptr<const WaveForm> parent) :parent_(std::move(parent)) { }
 
   float next_sample(float frequency);
   void fill_next_samples(float frequency, float *buffer, size_t count_to_fill);
@@ -26,16 +28,7 @@ class WaveForm :public std::enable_shared_from_this<WaveForm> {
   virtual ~WaveForm() = default;
 
   size_t memory_size() const;
-
-//  float next_sample(float frequency);
-//  void fill_next_samples(float frequency, float *buffer, size_t count_to_fill);
-//  void fill_next_samples(float frequency, AudioBuffer<float> &buffer, size_t count_to_fill);
-//  void fill_next_samples(float frequency, AudioBuffer<float> &buffer);
-//  void reset();
-  std::unique_ptr<WaveFormVoice> get_voice() const {
-    return std::make_unique<WaveFormVoice>(weak_from_this());
-  }
-
+  std::unique_ptr<WaveFormVoice> get_voice() const;
   std::tuple<const float*, size_t> get_original_waveform() const;
  private:
   friend class WaveFormVoice;

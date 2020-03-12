@@ -46,6 +46,9 @@ void WaveForm::setup_resample_cache() {
 std::tuple<const float *, size_t> WaveForm::get_original_waveform() const {
   return {original_samples_.getReadPointer(0), original_samples_.getNumSamples()};
 }
+std::unique_ptr<WaveFormVoice> WaveForm::get_voice() const {
+  return std::make_unique<WaveFormVoice>(weak_from_this());
+}
 
 float WaveFormVoice::next_sample(float frequency) {
   auto parent = parent_.lock();
