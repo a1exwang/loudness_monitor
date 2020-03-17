@@ -30,6 +30,8 @@
       <FILE id="Mmr7B9" name="synth.cpp" compile="1" resource="0" file="Source/synth/synth.cpp"/>
       <FILE id="Mmr7Ba" name="waveform.h" compile="0" resource="0" file="Source/synth/waveform.h"/>
       <FILE id="Mmr7Bb" name="waveform.cpp" compile="1" resource="0" file="Source/synth/waveform.cpp"/>
+      <FILE id="Mmr7Bc" name="ui_updater.h" compile="0" resource="0" file="Source/common/ui_updater.h"/>
+      <FILE id="Mmr7Bd" name="ui_updater.cpp" compile="1" resource="0" file="Source/common/ui_updater.cpp"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>

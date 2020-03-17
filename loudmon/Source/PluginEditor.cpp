@@ -1,4 +1,6 @@
 #include <chrono>
+#include <algorithm>
+#include <numeric>
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -19,6 +21,7 @@ std::string MainInfo::to_string() const {
   for (auto &key : display_value_keys_in_order_) {
     ss << key << ": " << display_values_.at(key) << std::endl;
   }
+  ss << "Entropy: " << entropy_ << std::endl;
   return ss.str();
 }
 
@@ -50,6 +53,12 @@ static auto get_menu_items(MainComponent *that) {
               {"Toggle Main Filter", std::bind(&MainComponent::toggle_main_filter, that)},
               {"Toggle Oscilloscope", std::bind(&MainComponent::toggle_oscilloscope, that)}
           }
+      },
+      {
+        "Control",
+            {
+                {"Reset Entropy", std::bind(&MainComponent::reset_entropy, that)},
+            }
       }
   };
 }
@@ -62,6 +71,10 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
       menu_bar_(this),
       oscilloscope_waveform_(256),
       keyboard_(keyboard_state_, juce::MidiKeyboardComponent::Orientation::horizontalKeyboard) {
+
+//  debug_plot.set_value_range(0, 1, 0, 1, false, false);
+//  debug_plot.add_new_values("1", {{0.1f, -0.1f}, {0.5f, 0.5f}, {0.9f, 1.1f}});
+//  addAndMakeVisible(debug_plot);
 
   if (juce::SystemStats::getOperatingSystemType() == juce::SystemStats::OperatingSystemType::Linux) {
     Desktop::getInstance().setGlobalScaleFactor(2);
@@ -94,7 +107,6 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
   debug_window->setSize(1024, 400);
   debug_window->setResizable(true, true);
 
-  startTimerHz(30);
   resize_children();
 }
 
@@ -192,23 +204,6 @@ void MainComponent::prepare_to_play(double sample_rate, size_t samples_per_block
   });
 }
 
-void MainComponent::enqueue(std::function<void()> action) {
-  std::unique_lock<std::mutex> _(queue_lock);
-  queued_actions.emplace_back(std::move(action));
-}
-bool MainComponent::dequeue() {
-  std::function<void()> action;
-  {
-    std::unique_lock<std::mutex> _(queue_lock);
-    if (queued_actions.empty()) {
-      return false;
-    }
-    action = std::move(queued_actions.front());
-    queued_actions.pop_front();
-  }
-  action();
-  return true;
-}
 
 void MainComponent::resize_children() {
   auto area = getLocalBounds();
@@ -250,6 +245,8 @@ void MainComponent::send_block(float sample_rate, AudioBuffer<float> buffer) {
       oscilloscope_spectrum_.add_new_values("spectrum", std::move(values));
       oscilloscope_spectrum_.repaint();
     }
+
+    calculate_entropy();
   });
 }
 
@@ -262,4 +259,30 @@ void MainComponent::calculate_spectrum() {
       spectrum_buffer_.getWritePointer(0),
       spectrum_buffer_.getNumSamples());
 //  fft_.performFrequencyOnlyForwardTransform(spectrum_buffer_.getWritePointer(0));
+}
+
+void MainComponent::calculate_entropy() {
+  enqueue([this]() {
+    auto buf = buffer_.getReadPointer(0);
+    for (auto i = 0; i < buffer_.getNumSamples(); i++) {
+      auto sample_value = size_t((buf[i] + 1)/2 * float(1ul << entropy_bits));
+      if (sample_value >= value_counts_.size()) {
+        sample_value = value_counts_.size() - 1;
+      }
+      value_counts_[sample_value]++;
+    }
+    size_t total_count = std::accumulate(value_counts_.begin(), value_counts_.end(), 0);
+    double entropy = 0;
+    for (auto value_count : value_counts_) {
+      double p = double(value_count) / total_count;
+      if (p > 0) {
+        entropy += -p * log2(p);
+      }
+    }
+    main_info_.set_entropy(entropy);
+  });
+}
+
+void MainComponent::reset_entropy() {
+  std::fill(value_counts_.begin(), value_counts_.end(), 0);
 }

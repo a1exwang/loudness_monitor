@@ -1,5 +1,6 @@
 #include "plot.h"
 #include "utils.h"
+#include <numeric>
 
 
 typedef std::tuple<float, float> Pt;
@@ -52,15 +53,8 @@ void PlotComponent::plot_lines(Graphics &g) {
         auto [x1, y1] = map_point(last_x, last_y);
         auto [x2, y2] = map_point(x, y);
 
-        auto [point, result] = get_clip_point(x1, y1, x2, y2);
-        if (result != ClipPointResultAllOut) {
-          if (result == ClipPointResultAllIn) {
-            g.drawLine(x1, y1, x2, y2);
-          } else if (result == 0) {
-            g.drawLine(std::get<0>(point), std::get<1>(point), x2, y2);
-          } else /* (result == 1) */ {
-            g.drawLine(x1, y1, std::get<0>(point), std::get<1>(point));
-          }
+        if (get_clip_point(x1, y1, x2, y2)) {
+          g.drawLine(x1, y1, x2, y2);
         }
         std::tie(last_x, last_y) = line[i];
       }
@@ -84,12 +78,19 @@ void PlotComponent::paint_legends(Graphics &g) {
   g.restoreState();
 }
 
-std::tuple<Pt, int> PlotComponent::get_clip_point(float x1, float y1, float x2, float y2) const {
+bool PlotComponent::get_clip_point(float &x1, float &y1, float &x2, float &y2) const {
+
+  // make sure x1 <= x2
+  if (x1 > x2) {
+    std::swap(x1, x2);
+    std::swap(y1, y2);
+  }
+
   auto get_y = [=](float x) {
-    return (y2 - y1) / (x2 - x1) * (x-x1) + x2;
+    return (y2 - y1) / (x2 - x1) * (x-x1) + y1;
   };
   auto get_x = [=](float y) {
-    return (x2 - x1) / (y2 - y1) * (y-y1) + y2;
+    return (x2 - x1) / (y2 - y1) * (y-y1) + x1;
   };
 
   auto in_middle_of = [](const Pt &target, Pt p1, Pt p2) {
@@ -100,30 +101,73 @@ std::tuple<Pt, int> PlotComponent::get_clip_point(float x1, float y1, float x2, 
 
   if (!(x1 >= app_x_min && x1 < app_x_max && y1 >= app_y_min && y1 < app_y_max) &&
       !(x2 >= app_x_min && x2 < app_x_max && y2 >= app_y_min && y2 < app_y_max)) {
-    return {{}, ClipPointResultAllOut};
+    return false;
   }
+
+  // One single point cannot make a line
+  if (x1 == x2 && y1 == y2) {
+    return false;
+  }
+
+  if (std::isinf(y1) && std::isinf(y2)) {
+    if (y1 * y2 > 0 || std::isinf(x1) || std::isinf(x2)) {
+      return false;
+    }
+    if (y1 < y2) {
+      y1 = app_y_min;
+      y2 = app_y_max;
+    } else {
+      y1 = app_y_max;
+      y2 = app_y_min;
+    }
+    return true;
+  } else if (std::isinf(y1) || std::isinf(y2)) {
+    if (std::isinf(y2)) {
+      x2 = x1;
+      y2 = y2 > 0 ? app_y_max : app_y_min;
+    } else {
+      x1 = x2;
+      y1 = y1 > 0 ? app_y_max : app_y_min;
+    }
+    return true;
+  }
+
+  // neither y1 nor y2 is INF
+
 
   if (x1 != x2) {
     std::tuple<float, float>
         pleft{app_x_min, get_y(app_x_min)},
         pright{app_x_max, get_y(app_x_max)};
 
-    if (in_middle_of(pleft, p1, p2)) {
-      return {pleft, x1 < x2 ? 0 : 1};
-    } else if (in_middle_of(pright, p1, p2)) {
-      return {pright, x1 < x2 ? 1 : 0};
+    if (in_middle_of(pleft, p1, p2) && std::get<1>(pleft) >= app_y_min && std::get<1>(pleft) < app_y_max) {
+      std::tie(x1, y1) = pleft;
+      return true;
+    } else if (in_middle_of(pright, p1, p2) && std::get<1>(pright) >= app_y_min && std::get<1>(pright) < app_y_max) {
+      std::tie(x2, y2) = pright;
+      return true;
     }
   }
   if (y1 != y2) {
     Pt ptop{get_x(app_y_min), app_y_min},
         pbottom{get_x(app_y_max), app_y_max};
 
-    if (in_middle_of(ptop, p1, p2)) {
-      return {ptop, y1 < y2 ? 0 : 1};
-    } else if (in_middle_of(pbottom, p1, p2)) {
-      return {pbottom, y1 < y2 ? 1 : 0};
+    if (in_middle_of(ptop, p1, p2) && std::get<0>(ptop) >= app_x_min && std::get<0>(ptop) < app_x_max) {
+      if (y1 < y2) {
+        std::tie(x1, y1) = ptop;
+      } else {
+        std::tie(x2, y2) = ptop;
+      }
+      return true;
+    } else if (in_middle_of(pbottom, p1, p2) && std::get<0>(pbottom) >= app_x_min && std::get<0>(pbottom) < app_x_max) {
+      if (y1 < y2) {
+        std::tie(x1, y1) = pbottom;
+      } else {
+        std::tie(x2, y2) = pbottom;
+      }
+      return true;
     }
   }
 
-  return {{}, ClipPointResultAllIn};
+  return true;
 }

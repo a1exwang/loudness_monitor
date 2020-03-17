@@ -128,7 +128,7 @@ class PlotComponent :public juce::Component {
   void paint_coordinates(Graphics &g);
   const int ClipPointResultAllOut = -2;
   const int ClipPointResultAllIn = -1;
-  std::tuple<std::tuple<float, float>, int> get_clip_point(float x1, float y1, float x2, float y2) const;
+  bool get_clip_point(float &x1, float &y1, float &x2, float &y2) const;
 
   void plot_lines(Graphics &g);
   void paint_legends(Graphics &g);

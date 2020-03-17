@@ -10,6 +10,7 @@
 #include "loudmon/filter_ui.h"
 #include "loudmon/oscilloscope.h"
 #include "synth/synth.h"
+#include "common/ui_updater.h"
 
 class DebugOutputWindow;
 class MainInfo {
@@ -45,6 +46,10 @@ class MainInfo {
     input_channels_ = n;
     update_callback_();
   }
+  void set_entropy(double entropy) {
+    entropy_ = entropy;
+    update_callback_();
+  }
 
   void add_display_value(const std::string& key, float value) {
     std::stringstream ss;
@@ -69,13 +74,14 @@ class MainInfo {
   std::vector<float> input_rms_;
   float latency_ms_ = 0, latency_max_expected_ = 0, process_block_interval_ = 0;
   size_t late_block_count_ = 0;
+  double entropy_ = 0;
 
   std::map<std::string, std::string> display_values_;
   std::list<std::string> display_value_keys_in_order_;
   std::function<void()> update_callback_;
 };
 
-class MainComponent : public AudioProcessorEditor, public juce::Timer, public juce::MenuBarModel {
+class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce::MenuBarModel {
  public:
   explicit MainComponent(NewProjectAudioProcessor& p);
   MainComponent(NewProjectAudioProcessor& p, double sample_rate, size_t block_size, size_t input_channels) :MainComponent(p) {
@@ -99,9 +105,6 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   /* Component callbacks, UI thread */
   void visibilityChanged() override;
   void paint(Graphics& g) override;
-  void timerCallback() override {
-    while (dequeue()) {}
-  }
   void resized() override {
     resize_children();
   }
@@ -142,6 +145,8 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   }
 
   void calculate_spectrum();
+  void calculate_entropy();
+  void reset_entropy();
   void send_block(float sample_rate, AudioBuffer<float> buffer);
 
   void add_display_value(const std::string& key, std::string value) {
@@ -170,8 +175,6 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
 
  protected:
   void resize_children();
-  void enqueue(std::function<void()> action);
-  bool dequeue();
 
  private:
   MainInfo main_info_;
@@ -185,9 +188,6 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   OscilloscopeComponent oscilloscope_waveform_;
   PlotComponent oscilloscope_spectrum_;
 
-  std::list<std::function<void()>> queued_actions;
-  std::mutex queue_lock;
-
   Component::SafePointer<DebugOutputWindow> debug_window;
   bool debug_window_visible_ = false;
 
@@ -198,10 +198,14 @@ class MainComponent : public AudioProcessorEditor, public juce::Timer, public ju
   AudioBuffer<float> buffer_;
   AudioBuffer<float> spectrum_buffer_ = AudioBuffer<float>(1, 1ul<<12);
 
+  const size_t entropy_bits = 16;
+  std::vector<size_t> value_counts_ = std::vector<size_t>(1ul << entropy_bits, 0);
+
   juce::MidiKeyboardState keyboard_state_;
   juce::MidiKeyboardComponent keyboard_;
 
   SynthControl synth_control_;
+  PlotComponent debug_plot;
   //==============================================================================
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
