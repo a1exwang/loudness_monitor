@@ -109,31 +109,53 @@ bool PlotComponent::get_clip_point(float &x1, float &y1, float &x2, float &y2) c
     return false;
   }
 
-  if (std::isinf(y1) && std::isinf(y2)) {
-    if (y1 * y2 > 0 || std::isinf(x1) || std::isinf(x2)) {
-      return false;
+  auto filter_inf_x = [&](float &x) {
+    if (std::isinf(x)) {
+      if (x > 0) {
+        x = app_x_max;
+      } else {
+        x = app_x_min;
+      }
     }
-    if (y1 < y2) {
-      y1 = app_y_min;
-      y2 = app_y_max;
-    } else {
-      y1 = app_y_max;
-      y2 = app_y_min;
+  };
+  auto filter_inf_y = [&](float &y) {
+    if (std::isinf(y)) {
+      if (y > 0) {
+        y = app_x_max;
+      } else {
+        y = app_x_min;
+      }
     }
-    return true;
-  } else if (std::isinf(y1) || std::isinf(y2)) {
-    if (std::isinf(y2)) {
-      x2 = x1;
-      y2 = y2 > 0 ? app_y_max : app_y_min;
-    } else {
-      x1 = x2;
-      y1 = y1 > 0 ? app_y_max : app_y_min;
-    }
-    return true;
-  }
-
+  };
+  filter_inf_x(x1);
+  filter_inf_x(x2);
+  filter_inf_y(y1);
+  filter_inf_y(y2);
+//
+//  if (std::isinf(y1) && std::isinf(y2)) {
+//    if (y1 * y2 > 0 || std::isinf(x1) || std::isinf(x2)) {
+//      return false;
+//    }
+//    if (y1 < y2) {
+//      y1 = app_y_min;
+//      y2 = app_y_max;
+//    } else {
+//      y1 = app_y_max;
+//      y2 = app_y_min;
+//    }
+//    return true;
+//  } else if (std::isinf(y1) || std::isinf(y2)) {
+//    if (std::isinf(y2)) {
+//      x2 = x1;
+//      y2 = y2 > 0 ? app_y_max : app_y_min;
+//    } else {
+//      x1 = x2;
+//      y1 = y1 > 0 ? app_y_max : app_y_min;
+//    }
+//    return true;
+//  }
   // neither y1 nor y2 is INF
-
+  // TODO
 
   if (x1 != x2) {
     std::tuple<float, float>

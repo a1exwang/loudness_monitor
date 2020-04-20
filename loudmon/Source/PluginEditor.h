@@ -111,26 +111,30 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
 
   /* May be in any thread */
   void set_input_rms(const std::vector<float>& values) {
-    enqueue([this, values]() {
+    enqueue_ui([this, values]() {
       main_info_.set_input_rms(values);
       repaint();
     });
   }
   void set_latency_ms(float ms, float max_expected, size_t late) {
-    enqueue([this, ms, max_expected, late]() {
+    enqueue_ui([this, ms, max_expected, late]() {
       main_info_.set_latency(ms, max_expected, late);
       repaint();
     });
   }
   void set_process_block_interval(float seconds) {
-    enqueue([this, seconds]() {
+    enqueue_ui([this, seconds]() {
       main_info_.set_process_block_interval(seconds);
       repaint();
     });
   }
   void repaint_safe() {
-    enqueue([this]() {
-      info_text.setText(main_info_.to_string(), dontSendNotification);
+    enqueue_ui([this]() {
+      std::stringstream ss;
+      ss << main_info_.to_string();
+      ss << "Queue: UI " << std::fixed << std::setprecision(1) << get_average_ui_latency()*1000 << "ms" << "/" << get_ui_queue_size() << "/" << get_ui_queue_loss() << std::endl <<
+         "UI proc: " << get_average_ui_processing_latency()*1000 << "ms" << std::endl;
+      info_text.setText(ss.str(), dontSendNotification);
       repaint();
     });
   }
@@ -150,13 +154,13 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
   void send_block(float sample_rate, AudioBuffer<float> buffer);
 
   void add_display_value(const std::string& key, std::string value) {
-    enqueue([this, key, value{std::move(value)}]() {
+    enqueue_ui([this, key, value{std::move(value)}]() {
       main_info_.add_display_value(key, value);
       repaint();
     });
   }
   void add_display_value(const std::string& key, float value) {
-    enqueue([this, key, value]() {
+    enqueue_ui([this, key, value]() {
       main_info_.add_display_value(key, value);
       repaint();
     });
@@ -199,7 +203,7 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
   AudioBuffer<float> spectrum_buffer_ = AudioBuffer<float>(1, 1ul<<12);
 
   const size_t entropy_bits = 16;
-  std::vector<size_t> value_counts_ = std::vector<size_t>(1ul << entropy_bits, 0);
+  std::vector<size_t> value_counts_ = std::vector<size_t>(size_t(int(1 << entropy_bits)), size_t(0));
 
   juce::MidiKeyboardState keyboard_state_;
   juce::MidiKeyboardComponent keyboard_;

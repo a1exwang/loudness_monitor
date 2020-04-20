@@ -33,15 +33,12 @@ class OscilloscopeComponent :public juce::Component {
   }
 
   // non-owning
-  void set_values(const float *ptr, size_t size) {
+  void add_values(const float *ptr, size_t size) {
     std::unique_lock<spinlock> _(lock_);
-    values_.resize(size);
-    std::copy(ptr, ptr+size, values_.begin());
     plot_.clear();
-    std::vector<std::tuple<float, float>> values;
-    values.reserve(values_.size());
-    for (size_t i = 0; i < values_.size(); i++) {
-      values.emplace_back(static_cast<float>(i), values_[i]);
+    std::vector<std::tuple<float, float>> values(size);
+    for (size_t i = 0; i < size; i++) {
+      values[i] = {static_cast<float>(i), ptr[i]};
     }
     plot_.add_new_values("osc", values);
   }
@@ -68,7 +65,6 @@ class OscilloscopeComponent :public juce::Component {
 
   juce::Slider x_slider_;
   LogSlider y_slider_;
-  std::vector<float> values_;
   spinlock lock_;
   PlotComponent plot_;
   float yx_display_ratio_;

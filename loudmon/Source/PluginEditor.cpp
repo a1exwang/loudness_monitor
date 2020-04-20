@@ -189,7 +189,7 @@ void MainComponent::paint(Graphics& g) {
 
 
 void MainComponent::prepare_to_play(double sample_rate, size_t samples_per_block, size_t input_channels) {
-  enqueue([this, sample_rate, samples_per_block, input_channels]() {
+  enqueue_ui([this, sample_rate, samples_per_block, input_channels]() {
     main_info_.set_sample_rate(sample_rate);
     main_info_.set_samples_per_block(samples_per_block);
     main_info_.set_input_channels(input_channels);
@@ -225,17 +225,17 @@ void MainComponent::resize_children() {
 }
 
 void MainComponent::send_block(float sample_rate, AudioBuffer<float> buffer) {
-  enqueue([this, sample_rate, buffer{std::move(buffer)}]() {
+  enqueue_ui([this, sample_rate, buffer{std::move(buffer)}]() {
     buffer_ = buffer;
     if (oscilloscope_enabled_) {
-      oscilloscope_waveform_.set_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
+      oscilloscope_waveform_.add_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
 
       calculate_spectrum();
 
-      std::vector<std::tuple<float, float>> values(spectrum_buffer_.getNumSamples()/2+1);
+      std::vector<std::tuple<float, float>> values(spectrum_buffer_.getNumSamples() / 2 + 1);
       auto buf = spectrum_buffer_.getReadPointer(0);
       for (int i = 0; i < values.size(); i++) {
-        values[i] = {float(i)/spectrum_buffer_.getNumSamples()*sample_rate, 10*log10(buf[i])};
+        values[i] = {float(i) / spectrum_buffer_.getNumSamples() * sample_rate, 10 * log10(buf[i])};
         if (buf[i] > 0) {
           log(10, std::to_string(std::get<0>(values[i])) + " " + std::to_string(std::get<1>(values[i])));
         }
@@ -262,16 +262,16 @@ void MainComponent::calculate_spectrum() {
 }
 
 void MainComponent::calculate_entropy() {
-  enqueue([this]() {
+  enqueue_ui_processing([this]() {
     auto buf = buffer_.getReadPointer(0);
     for (auto i = 0; i < buffer_.getNumSamples(); i++) {
-      auto sample_value = size_t((buf[i] + 1)/2 * float(1ul << entropy_bits));
+      auto sample_value = size_t((buf[i] + 1) / 2 * float(1ul << entropy_bits));
       if (sample_value >= value_counts_.size()) {
         sample_value = value_counts_.size() - 1;
       }
       value_counts_[sample_value]++;
     }
-    size_t total_count = std::accumulate(value_counts_.begin(), value_counts_.end(), 0);
+    size_t total_count = std::accumulate(value_counts_.begin(), value_counts_.end(), size_t(0));
     double entropy = 0;
     for (auto value_count : value_counts_) {
       double p = double(value_count) / total_count;
@@ -279,10 +279,14 @@ void MainComponent::calculate_entropy() {
         entropy += -p * log2(p);
       }
     }
-    main_info_.set_entropy(entropy);
+    enqueue_ui([this, entropy]() {
+      main_info_.set_entropy(entropy);
+    });
   });
 }
 
 void MainComponent::reset_entropy() {
-  std::fill(value_counts_.begin(), value_counts_.end(), 0);
+  enqueue_ui_processing([this]() {
+    std::fill(value_counts_.begin(), value_counts_.end(), 0);
+  });
 }

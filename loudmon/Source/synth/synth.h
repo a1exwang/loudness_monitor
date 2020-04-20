@@ -74,7 +74,7 @@ class SynthControl : public juce::Component {
   void update_waveform() {
     if (waveform()) {
       auto [data, size] = waveform()->get_original_waveform();
-      oscilloscope_.set_values(data, size);
+      oscilloscope_.add_values(data, size);
       oscilloscope_.set_x_slider_range(0, size);
     }
   }
